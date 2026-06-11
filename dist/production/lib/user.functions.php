@@ -1,0 +1,2062 @@
+<?php
+
+require_once __DIR__ . '/include_only.guard.php';
+denyDirectLibAccess(__FILE__);
+
+require_once __DIR__ . '/session.functions.php';
+require_once __DIR__ . '/season.functions.php';
+require_once __DIR__ . '/series.functions.php';
+require_once __DIR__ . '/team.functions.php';
+require_once __DIR__ . '/reservation.functions.php';
+require_once __DIR__ . '/logging.functions.php';
+require_once __DIR__ . '/common.functions.php';
+
+//include_once $include_prefix.'lib/configuration.functions.php';
+
+function hashEqualsSafe($known, $user)
+{
+    if (function_exists('hash_equals')) {
+        return hash_equals($known, $user);
+    }
+    return strcmp($known, $user) === 0;
+}
+
+function isLegacyMd5Hash($hash)
+{
+    return strlen($hash) === 32 && ctype_xdigit($hash);
+}
+
+function hashUserPassword($password)
+{
+    if (function_exists('password_hash')) {
+        return password_hash($password, PASSWORD_DEFAULT);
+    }
+    return md5($password);
+}
+
+function updateUserPasswordHash($userId, $password)
+{
+    $query = sprintf(
+        "UPDATE uo_users SET password='%s' WHERE userid='%s'",
+        DBEscapeString(hashUserPassword($password)),
+        DBEscapeString($userId),
+    );
+
+    DBQuery($query);
+}
+
+function verifyUserPassword($password, $storedHash, $userId = null)
+{
+    if ($storedHash === null || $storedHash === '') {
+        return false;
+    }
+
+    $storedHash = (string) $storedHash;
+
+    if (!isLegacyMd5Hash($storedHash) && function_exists('password_verify')) {
+        if (password_verify($password, $storedHash)) {
+            if ($userId && function_exists('password_needs_rehash') && password_needs_rehash($storedHash, PASSWORD_DEFAULT)) {
+                updateUserPasswordHash($userId, $password);
+            }
+            return true;
+        }
+    }
+
+    if (isLegacyMd5Hash($storedHash) && hashEqualsSafe(md5($password), $storedHash)) {
+        if ($userId) {
+            updateUserPasswordHash($userId, $password);
+        }
+        return true;
+    }
+
+    return false;
+}
+
+function FailRedirect($user)
+{
+    SetUserSessionData('anonymous');
+    header("location:?view=login/login_failed&user=" . urlencode($user));
+    exit();
+}
+
+function FailRedirectMobile($user)
+{
+    SetUserSessionData('anonymous');
+    header("location:?view=mobile/login_failed&user=" . urlencode($user));
+    exit();
+}
+
+function FailUnauthorized($user)
+{
+    header('WWW-Authenticate: Basic realm="ultiorganizer"');
+    header("HTTP/1.0 401 Unauthorized");
+    echo "<html><head><title>Login failed</title></head><body><h1>Login failed for " . utf8entities($user) . "</h1></body></html>\n";
+    exit();
+}
+
+function Forbidden($user)
+{
+    header("HTTP/1.0 403 Forbidden");
+    echo "<html><head><title>Operation not allowed.</title></head><body><h1>Operation not allowed for " . utf8entities($user) . "</h1></body></html>\n";
+    exit();
+}
+
+function UserAuthenticate($user, $passwd, $failcallback)
+{
+    $query = sprintf(
+        "SELECT * FROM uo_users WHERE UserID='%s'",
+        DBEscapeString($user),
+    );
+    $row = DBQueryToRow($query);
+
+    if ($row && verifyUserPassword($passwd, $row['password'], $row['userid'])) {
+        LogUserAuthentication($user, "success");
+        regenerateSessionId();
+        SetUserSessionData($user);
+        DBQuery("UPDATE uo_users SET last_login=NOW() WHERE userid='" . DBEscapeString($user) . "'");
+
+        // First-time superadmins land on server settings after initial login.
+        if (empty($row['last_login']) && isSuperAdmin()) {
+            header("location:?view=admin/serverconf");
+            exit();
+        }
+
+        if (empty($row['last_login'])) {
+            header("location:?view=user/userinfo");
+            exit();
+        }
+    } else {
+        LogUserAuthentication($user, "failed");
+        if (!empty($failcallback)) {
+            $failcallback($user);
+        } else {
+            return false;
+        }
+    }
+}
+
+function UserInfo($user_id)
+{
+    if ($user_id == $_SESSION['uid'] || hasEditUsersRight()) {
+        $query = sprintf(
+            "SELECT * FROM uo_users WHERE userid='%s'",
+            DBEscapeString($user_id),
+        );
+        return DBQueryToRow($query, true);
+    } else {
+        die('Insufficient rights to get user info');
+    }
+}
+
+function UserIdForMail($mail)
+{
+    $query = sprintf(
+        "SELECT userid FROM uo_users WHERE email='%s'",
+        DBEscapeString($mail),
+    );
+    return DBQueryToValue($query);
+}
+
+function UserExists($user_id)
+{
+    $query = sprintf(
+        "SELECT userid FROM uo_users WHERE userid='%s'",
+        DBEscapeString($user_id),
+    );
+    $row = DBQueryToRow($query);
+    return !empty($row);
+}
+
+function UserExtraEmails($user_id)
+{
+    if ($user_id == $_SESSION['uid'] || hasEditUsersRight()) {
+        $query = sprintf(
+            "SELECT email FROM uo_extraemail WHERE userid='%s'",
+            DBEscapeString($user_id),
+        );
+        $ret = DBQueryToArray($query);
+
+        if (count($ret) > 0) {
+            return $ret;
+        } else {
+            return false;
+        }
+    } else {
+        die('Insufficient rights to get user info');
+    }
+}
+
+function IsRegistered($user_id)
+{
+    if ($user_id == "anonymous") {
+        return false;
+    }
+
+    $query = sprintf(
+        "SELECT userid FROM uo_users WHERE userid='%s'",
+        DBEscapeString($user_id),
+    );
+    $result = DBQuery($query);
+
+    if ($row = mysqli_fetch_assoc($result)) {
+        return true;
+    } else {
+        $query = sprintf(
+            "SELECT userid FROM uo_registerrequest WHERE userid='%s'",
+            DBEscapeString($user_id),
+        );
+        $result = DBQuery($query);
+
+        if ($row = mysqli_fetch_assoc($result)) {
+            return true;
+        }
+        return false;
+    }
+}
+
+function UserUpdateInfo($user_id, $olduser, $user, $name)
+{
+    if ($olduser == $_SESSION['uid'] || hasEditUsersRight()) {
+
+        $query = sprintf(
+            "UPDATE uo_users SET UserID='%s', name='%s' WHERE ID=%d",
+            DBEscapeString($user),
+            DBEscapeString($name),
+            (int) $user_id,
+        );
+
+        DBQuery($query);
+
+        if ($olduser != $user) {
+            $query = sprintf(
+                "UPDATE uo_userproperties SET userid='%s' WHERE userid='%s'",
+                DBEscapeString($user),
+                DBEscapeString($olduser),
+            );
+
+            DBQuery($query);
+        }
+        //update session data only if user is current use
+        if ($olduser == $_SESSION['uid']) {
+            SetUserSessionData($user);
+        }
+        return true;
+    } else {
+        die('Insufficient rights to change user info');
+    }
+}
+
+function UserChangePassword($user_id, $passwd)
+{
+
+    if ($user_id == $_SESSION['uid'] || hasEditUsersRight()) {
+        updateUserPasswordHash($user_id, $passwd);
+    } else {
+        die('Insufficient rights to change user info');
+    }
+}
+
+function SetUserSessionData($user_id)
+{
+    unset($_SESSION['userproperties']);
+    unset($_SESSION['navigation']);
+    unset($_SESSION['dbversion']);
+    $_SESSION['uid'] = $user_id;
+
+    $query = sprintf(
+        "SELECT prop_id, name, value FROM uo_userproperties WHERE userid='%s'",
+        DBEscapeString($user_id),
+    );
+    $rows = DBQueryToArray($query);
+
+    $_SESSION['userproperties'] = [];
+
+    foreach ($rows as $property) {
+        $propname = $property['name'];
+        $propvalue = explode(":", $property['value']);
+        $propid = $property['prop_id'];
+        if (!isset($_SESSION['userproperties'][$propname])) {
+            $_SESSION['userproperties'][$propname] = [];
+        }
+        if (count($propvalue) == 1) {
+            $_SESSION['userproperties'][$propname][$propvalue[0]] = $propid;
+        } else {
+            if (isset($_SESSION['userproperties'][$propname][$propvalue[0]])) {
+                $nextVal = $_SESSION['userproperties'][$propname][$propvalue[0]];
+                $nextVal[$propvalue[1]] = $propid;
+            } else {
+                $nextVal = [$propvalue[1] => $propid];
+            }
+            $_SESSION['userproperties'][$propname][$propvalue[0]] = $nextVal;
+        }
+    }
+}
+
+function getEditSeasons($userid)
+{
+    $editSeasons = getUserpropertyArray($userid, 'editseason');
+    return SortEditSeasons($editSeasons);
+}
+function SortEditSeasons($editSeasons)
+{
+    if (count($editSeasons) == 0) {
+        return $editSeasons;
+    } else {
+        $first = true;
+        $seasons = "'";
+        foreach ($editSeasons as $season => $propId) {
+            if ($first) {
+                $first = false;
+            } else {
+                $seasons .= ", '";
+            }
+            $seasons .= DBEscapeString($season) . "'";
+        }
+        $query = "SELECT season_id FROM uo_season WHERE season_id IN (" . $seasons . ") ORDER BY starttime ASC";
+        $result = DBQueryToArray($query);
+        $ret = [];
+        foreach ($result as $row) {
+            $ret[$row['season_id']] = $editSeasons[$row['season_id']];
+        }
+
+        return $ret;
+    }
+}
+
+function getPoolselectors($userid)
+{
+    return getUserpropertyArray($userid, 'poolselector');
+}
+
+function getUserroles($userid)
+{
+    return getUserpropertyArray($userid, 'userrole');
+}
+
+function getUserLocale($userid)
+{
+    $localearr = getUserpropertyArray($userid, 'locale');
+    if (count($localearr) > 0) {
+        $tmparr = array_keys($localearr);
+        return $tmparr[0];
+    } else {
+        return GetDefaultLocale();
+    }
+}
+
+function SetUserLocale($userid, $locale)
+{
+    if ($userid == $_SESSION['uid'] || hasEditUsersRight()) {
+        global $locales;
+        if (isset($locales[$locale])) {
+            $localearr = getUserpropertyArray($userid, 'locale');
+            if (count($localearr) > 0) {
+                $query = sprintf(
+                    "UPDATE uo_userproperties SET value='%s' WHERE userid='%s' AND name='locale'",
+                    DBEscapeString($locale),
+                    DBEscapeString($userid),
+                );
+            } else {
+                $query = sprintf(
+                    "INSERT INTO uo_userproperties (name, value, userid) VALUES ('locale', '%s', '%s')",
+                    DBEscapeString($locale),
+                    DBEscapeString($userid),
+                );
+            }
+            $result = DBQuery($query);
+        } else {
+            die('Invalid locale: ' . $locale);
+        }
+    } else {
+        die('Insufficient rights to set user locale');
+    }
+}
+
+function getPropId($userid, $name, $value)
+{
+    if ($userid == $_SESSION['uid'] || hasEditUsersRight()) {
+        $query = sprintf(
+            "SELECT prop_id FROM uo_userproperties WHERE userid='%s' and name='%s'
+							and value='%s'",
+            DBEscapeString($userid),
+            DBEscapeString($name),
+            DBEscapeString($value),
+        );
+        $val = DBQueryToValue($query);
+
+        return $val;
+    } else {
+        die('Insufficient rights to get user info');
+    }
+}
+
+function getUserpropertyArray($userid, $propertyname)
+{
+    if ($userid == $_SESSION['uid'] || hasEditUsersRight()) {
+        $query = sprintf(
+            "SELECT prop_id, value FROM uo_userproperties WHERE userid='%s' and name='%s'",
+            DBEscapeString($userid),
+            DBEscapeString($propertyname),
+        );
+        $result = DBQuery($query);
+
+        $ret = [];
+        while ($property = mysqli_fetch_assoc($result)) {
+            $propvalue = explode(":", $property['value']);
+            $propid = $property['prop_id'];
+            if (count($propvalue) == 1) {
+                $ret[$propvalue[0]] = $propid;
+            } else {
+                if (isset($ret[$propvalue[0]])) {
+                    $nextVal = $ret[$propvalue[0]];
+                    $nextVal[$propvalue[1]] = $propid;
+                } else {
+                    $nextVal = [$propvalue[1] => $propid];
+                }
+                $ret[$propvalue[0]] = $nextVal;
+            }
+        }
+        return $ret;
+    } else {
+        die('Insufficient rights to get user info');
+    }
+}
+
+
+function setSelectedSeason()
+{
+    //season selection changed
+    if (!empty($_GET["selseason"])) {
+        $_SESSION['userproperties']['selseason'] = $_GET["selseason"];
+    }
+}
+
+function getViewPools($selSeasonId)
+{
+    $numselectors = 0;
+    $query = "SELECT seas.season_id as season, seas.name as season_name, ser.series_id as series, ser.name as series_name, pool.pool_id as pool, pool.name as pool_name ";
+    $query .= "FROM uo_pool pool
+		left outer join uo_series ser on (pool.series = ser.series_id)
+		left outer join uo_season seas on (ser.season = seas.season_id) ";
+    $query .= "WHERE pool.visible=1 AND ser.valid=1";
+    if (isset($_SESSION['userproperties']['poolselector'])) {
+        foreach ($_SESSION['userproperties']['poolselector'] as $selector => $param) {
+            if ($numselectors == 0) {
+                $query .= " AND (";
+            }
+            if ($numselectors > 0) {
+                $query .= "OR ";
+            }
+            if ($selector == 'currentseason') {
+                $query .= sprintf("seas.season_id='%s' ", DBEscapeString($selSeasonId));
+            } elseif ($selector == 'team') {
+                $query .= sprintf("pool.pool_id in (SELECT pool FROM uo_team WHERE team_id=%d) ", (int) key($param));
+                $query .= sprintf("OR pool.pool_id in (SELECT pool FROM uo_team_pool WHERE team=%d) ", (int) key($param));
+            } elseif ($selector == 'season') {
+                $query .= sprintf("seas.season_id='%s' ", DBEscapeString(key($param)));
+            } elseif ($selector == 'series') {
+                $query .= sprintf("ser.series_id=%d ", (int) key($param));
+            } elseif ($selector == 'pool') {
+                $query .= sprintf("pool.pool_id=%d ", (int) key($param));
+            }
+            $numselectors++;
+        }
+    }
+
+
+    if ($numselectors > 0) {
+        $query .= ")";
+    }
+    $query .= " ORDER BY seas.endtime > NOW() DESC, seas.starttime DESC, ser.season ASC, ser.ordering ASC, pool.ordering ASC";
+
+    return DBQueryToArray($query);
+    ;
+}
+
+
+function ClearUserSessionData()
+{
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        startSecureSession();
+    }
+
+    destroySessionCompletely();
+    startSecureSession();
+    SetUserSessionData("anonymous");
+}
+
+function setSuperAdmin($userid, $value)
+{
+    if (hasEditUsersRight()) {
+        if ($value && !isSuperAdminByUserid($userid)) {
+            $query = sprintf(
+                "INSERT INTO uo_userproperties (userid, name, value) VALUES ('%s', 'userrole', 'superadmin')",
+                DBEscapeString($userid),
+            );
+            $result = DBQuery($query);
+            Log1("security", "add", $userid, "", "superadmin acceess granted");
+        } elseif (!$value) {
+            $query = sprintf(
+                "DELETE FROM uo_userproperties WHERE userid='%s' AND name='userrole' AND value='superadmin'",
+                DBEscapeString($userid),
+            );
+            $result = DBQuery($query);
+            Log1("security", "add", $userid, "", "superadmin acceess removed");
+        }
+    } else {
+        die('Insufficient rights to change superadmin userrole');
+    }
+}
+
+function isSuperAdminByUserid($userid)
+{
+    if (hasEditUsersRight()) {
+        $query = sprintf(
+            "SELECT * FROM uo_userproperties WHERE userid='%s' AND name='userrole' AND value='superadmin'",
+            DBEscapeString($userid),
+        );
+        $result = DBQuery($query);
+
+        if ($row = mysqli_fetch_assoc($result)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+}
+
+function isSuperAdmin()
+{
+    return isset($_SESSION['userproperties']['userrole']['superadmin']);
+}
+
+function isPlayerAdmin($profile_id)
+{
+    return isset($_SESSION['userproperties']['userrole']['playeradmin'][$profile_id]);
+}
+
+function hasPlayerAdminRights()
+{
+    return isset($_SESSION['userproperties']['userrole']['playeradmin']);
+}
+
+function isSeasonAdmin($season)
+{
+    return isset($_SESSION['userproperties']['userrole']['superadmin']) ||
+        isset($_SESSION['userproperties']['userrole']['seasonadmin'][$season]);
+}
+
+function isSpiritAdmin($season)
+{
+    return isset($_SESSION['userproperties']['userrole']['superadmin']) ||
+        isset($_SESSION['userproperties']['userrole']['spiritadmin'][$season]);
+}
+
+function hasSpiritToolsRight($season)
+{
+    return isSeasonAdmin($season) || isSpiritAdmin($season);
+}
+
+function hasSpiritEditRight($season)
+{
+    if (!hasSpiritToolsRight($season)) {
+        return false;
+    }
+    if (isEventReadonly($season) && !canBypassEventReadonly($season)) {
+        return false;
+    }
+    return true;
+}
+
+function hasSeasonSeriesPageAccess($season, $series)
+{
+    return isSuperAdmin() ||
+        isset($_SESSION['userproperties']['userrole']['seasonadmin'][$season]) ||
+        isset($_SESSION['userproperties']['userrole']['seriesadmin'][$series]);
+}
+
+function hasAccreditationPageAccess($season)
+{
+    if (isSuperAdmin() || isSeasonAdmin($season)) {
+        return true;
+    }
+
+    foreach (SeasonSeries($season) as $series) {
+        if (isset($_SESSION['userproperties']['userrole']['seriesadmin'][$series['series_id']])) {
+            return true;
+        }
+    }
+
+    foreach (SeasonTeams($season) as $team) {
+        if (isset($_SESSION['userproperties']['userrole']['accradmin'][$team['team_id']])) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function hasReservationsPageAccess($season = "")
+{
+    if (empty($season)) {
+        return hasScheduleRights() || isSuperAdmin();
+    }
+    return isSuperAdmin() || isSeasonAdmin($season);
+}
+
+function canBypassEventReadonly($season)
+{
+    return isset($_SESSION['userproperties']['userrole']['superadmin']);
+}
+
+function hasScheduleRights()
+{
+    return isset($_SESSION['userproperties']['userrole']['resadmin']);
+}
+
+function hasViewUsersRight()
+{
+    return isset($_SESSION['userproperties']['userrole']['superadmin']);
+}
+function hasEditUsersRight()
+{
+    return isset($_SESSION['userproperties']['userrole']['superadmin']);
+}
+
+function hasChangeCurrentSeasonRight()
+{
+    return isset($_SESSION['userproperties']['userrole']['superadmin']);
+}
+
+function hasCurrentSeasonsEditRight()
+{
+    $seasons = EnrollSeasons();
+    $seasons[] = CurrentSeason();
+    foreach ($seasons as $season) {
+        if (isSeasonAdmin($season)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function hasEditSeasonSeriesRight($season)
+{
+    $hasEditRight = isset($_SESSION['userproperties']['userrole']['superadmin']) ||
+        isset($_SESSION['userproperties']['userrole']['seasonadmin'][$season]);
+    if (!$hasEditRight) {
+        return false;
+    }
+    if (isEventReadonly($season) && !canBypassEventReadonly($season)) {
+        return false;
+    }
+    return true;
+}
+
+function hasEditPlacesRight($season)
+{
+    $hasEditRight = isset($_SESSION['userproperties']['userrole']['superadmin']) ||
+        isset($_SESSION['userproperties']['userrole']['seasonadmin'][$season]);
+    if (!$hasEditRight) {
+        return false;
+    }
+    if (isEventReadonly($season) && !canBypassEventReadonly($season)) {
+        return false;
+    }
+    return true;
+}
+
+function hasEditTeamsRight($series)
+{
+    $season = SeriesSeasonId($series);
+    $hasEditRight = isset($_SESSION['userproperties']['userrole']['superadmin']) ||
+        isset($_SESSION['userproperties']['userrole']['seasonadmin'][$season]) ||
+        isset($_SESSION['userproperties']['userrole']['seriesadmin'][$series]);
+    if (!$hasEditRight) {
+        return false;
+    }
+    if (isEventReadonly($season) && !canBypassEventReadonly($season)) {
+        return false;
+    }
+    return true;
+}
+
+function hasEditGamesRight($series)
+{
+    $season = SeriesSeasonId($series);
+    $hasEditRight = isset($_SESSION['userproperties']['userrole']['superadmin']) ||
+        isset($_SESSION['userproperties']['userrole']['seasonadmin'][$season]) ||
+        isset($_SESSION['userproperties']['userrole']['seriesadmin'][$series]);
+    if (!$hasEditRight) {
+        return false;
+    }
+    if (isEventReadonly($season) && !canBypassEventReadonly($season)) {
+        return false;
+    }
+    return true;
+}
+
+function hasEditPlayerProfileRight($playerId)
+{
+    $playerInfo = PlayerInfo($playerId);
+    if (!$playerInfo) {
+        return false;
+    }
+
+    $team = $playerInfo['team'];
+    $series = getTeamSeries($team);
+    $season = SeriesSeasonId($series);
+    $hasEditRight = isPlayerAdmin($playerInfo['profile_id']) ||
+        isset($_SESSION['userproperties']['userrole']['superadmin']) ||
+        isset($_SESSION['userproperties']['userrole']['seasonadmin'][$season]) ||
+        isset($_SESSION['userproperties']['userrole']['seriesadmin'][$series]) ||
+        isset($_SESSION['userproperties']['userrole']['teamadmin'][$team]);
+    if (!$hasEditRight) {
+        return false;
+    }
+    if (isEventReadonly($season) && !canBypassEventReadonly($season)) {
+        return false;
+    }
+    return true;
+}
+
+function hasEditPlayersRight($team)
+{
+    $series = getTeamSeries($team);
+    $season = SeriesSeasonId($series);
+    $hasEditRight = isset($_SESSION['userproperties']['userrole']['superadmin']) ||
+        isset($_SESSION['userproperties']['userrole']['seasonadmin'][$season]) ||
+        isset($_SESSION['userproperties']['userrole']['seriesadmin'][$series]) ||
+        isset($_SESSION['userproperties']['userrole']['teamadmin'][$team]);
+    if (!$hasEditRight) {
+        return false;
+    }
+    if (isEventReadonly($season) && !canBypassEventReadonly($season)) {
+        return false;
+    }
+    return true;
+}
+
+function hasEditGamePlayersRight($game)
+{
+    $team = GameRespTeam($game);
+    $series = GameSeries($game);
+    $season = SeriesSeasonId($series);
+    $reservation = GameReservation($game);
+    $hasEditRight = isset($_SESSION['userproperties']['userrole']['superadmin']) ||
+        isset($_SESSION['userproperties']['userrole']['seasonadmin'][$season]) ||
+        isset($_SESSION['userproperties']['userrole']['seriesadmin'][$series]) ||
+        isset($_SESSION['userproperties']['userrole']['teamadmin'][$team]) ||
+        isset($_SESSION['userproperties']['userrole']['resgameadmin'][$reservation]) ||
+        isset($_SESSION['userproperties']['userrole']['gameadmin'][$game]);
+    if (!$hasEditRight) {
+        return false;
+    }
+    if (isEventReadonly($season) && !canBypassEventReadonly($season)) {
+        return false;
+    }
+    return true;
+}
+
+function hasEditGameEventsRight($game)
+{
+    $team = GameRespTeam($game);
+    $series = GameSeries($game);
+    $season = SeriesSeasonId($series);
+    $reservation = GameReservation($game);
+    $hasEditRight = isset($_SESSION['userproperties']['userrole']['superadmin']) ||
+        isset($_SESSION['userproperties']['userrole']['seasonadmin'][$season]) ||
+        isset($_SESSION['userproperties']['userrole']['seriesadmin'][$series]) ||
+        isset($_SESSION['userproperties']['userrole']['teamadmin'][$team]) ||
+        isset($_SESSION['userproperties']['userrole']['resgameadmin'][$reservation]) ||
+        isset($_SESSION['userproperties']['userrole']['gameadmin'][$game]);
+    if (!$hasEditRight) {
+        return false;
+    }
+    if (isEventReadonly($season) && !canBypassEventReadonly($season)) {
+        return false;
+    }
+    return true;
+}
+function hasAccredidationRight($team)
+{
+    $series = getTeamSeries($team);
+    $season = SeriesSeasonId($series);
+    if (isEventReadonly($season) && !canBypassEventReadonly($season)) {
+        return false;
+    }
+    return hasEditTeamsRight($series) ||
+        isset($_SESSION['userproperties']['userrole']['accradmin'][$team]);
+}
+
+function hasTranslationRight()
+{
+    return isSuperAdmin();
+}
+
+function hasAddMediaRight()
+{
+    return isset($_SESSION['uid']) && ($_SESSION['uid'] != 'anonymous');
+}
+
+function isLoggedIn()
+{
+    return isset($_SESSION['uid']) && $_SESSION['uid'] != 'anonymous';
+}
+
+function UserListRightsHtml($userId)
+{
+    $query = sprintf("SELECT value FROM uo_userproperties WHERE userid='%s'", DBEscapeString($userId));
+    $result = DBQuery($query);
+    $rights = "";
+    while ($row = mysqli_fetch_row($result)) {
+        $value = preg_split('/:/', $row[0]);
+        switch ($value[0]) {
+            case "superadmin":
+                $rights .= "<span style='color:#ff0000; font-weight:bold'>" . $value[0] . "</span><br/>";
+                break;
+            case "seasonadmin":
+                $rights .= "<span style='color:#ff00ff;'>" . $value[0] . ": ";
+                $rights .= utf8entities(SeasonName($value[1]));
+                $rights .= "</span><br/>";
+                break;
+            case "spiritadmin":
+                $rights .= "<span>spiritadmin: ";
+                $rights .= utf8entities(SeasonName($value[1]));
+                $rights .= "</span><br/>";
+                break;
+            case "teamadmin":
+                $rights .= "<span'>" . $value[0] . ": ";
+                $rights .= utf8entities(TeamName($value[1]));
+                $rights .= "</span><br/>";
+                break;
+        }
+    }
+
+    return $rights;
+}
+
+
+function getSeriesName($series)
+{
+    $query = sprintf("SELECT name FROM uo_series WHERE series_id=%d", (int) $series);
+    $result = DBQuery($query);
+
+    if ($row = mysqli_fetch_assoc($result)) {
+        return $row['name'];
+    } else {
+        return "";
+    }
+}
+
+function getTeamSeries($team)
+{
+    $query = sprintf("SELECT series FROM uo_team WHERE team_id=%d", (int) $team);
+    $result = DBQuery($query);
+
+    if ($row = mysqli_fetch_assoc($result)) {
+        return $row['series'];
+    } else {
+        return "";
+    }
+}
+
+function getTeamSeason($team)
+{
+    $query = sprintf("SELECT ser.season as season FROM uo_team as team left join uo_series as ser on (team.series = ser.series_id)  WHERE team_id=%d", (int) $team);
+    $result = DBQuery($query);
+
+    if ($row = mysqli_fetch_assoc($result)) {
+        return $row['season'];
+    } else {
+        return "";
+    }
+}
+
+function getTeamName($team)
+{
+    $team = (int) $team;
+    if ($team <= 0) {
+        return "";
+    }
+
+    $query = sprintf("SELECT name FROM uo_team WHERE team_id=%d", $team);
+    $result = DBQuery($query);
+
+    if ($row = mysqli_fetch_assoc($result)) {
+        return $row['name'];
+    } else {
+        return "";
+    }
+}
+
+function RemovePoolSelector($userid, $propid)
+{
+    if ($userid == $_SESSION['uid'] || hasEditUsersRight()) {
+        $query = sprintf(
+            "DELETE FROM uo_userproperties WHERE prop_id=%d AND userid='%s' AND name='poolselector'",
+            (int) $propid,
+            DBEscapeString($userid),
+        );
+        $result = DBQuery($query);
+
+        Log1("security", "delete", $userid, $propid, "poolselector");
+        if ($userid == $_SESSION['uid']) {
+            SetUserSessionData($userid);
+        }
+        return true;
+    } else {
+        die('Insufficient rights to change user info');
+    }
+}
+
+function RemoveExtraEmail($userid, $extraEmail)
+{
+    if ($userid == $_SESSION['uid'] || hasEditUsersRight()) {
+        $query = sprintf(
+            "DELETE FROM uo_extraemail WHERE userid='%s' AND email='%s'",
+            DBEscapeString($userid),
+            DBEscapeString($extraEmail),
+        );
+        $result = DBQuery($query);
+
+        Log1("security", "delete", $userid, $extraEmail, "extraemail");
+        return true;
+    } else {
+        die('Insufficient rights to change user info');
+    }
+}
+
+function ToPrimaryEmail($userid, $extraEmail)
+{
+    if ($userid == $_SESSION['uid'] || hasEditUsersRight()) {
+        $query = sprintf(
+            "SELECT * FROM uo_extraemail WHERE userid='%s' AND email='%s'",
+            DBEscapeString($userid),
+            DBEscapeString($extraEmail),
+        );
+        $result = DBQuery($query);
+
+        if ($row = mysqli_fetch_row($result)) {
+            $userInfo = UserInfo($userid);
+            $oldPrimary = $userInfo['email'];
+            if ($oldPrimary != $extraEmail) {
+                $query = sprintf(
+                    "UPDATE uo_extraemail SET email='%s' WHERE userid='%s' and email='%s'",
+                    DBEscapeString($oldPrimary),
+                    DBEscapeString($userid),
+                    DBEscapeString($extraEmail),
+                );
+                $result = DBQuery($query);
+
+                $query = sprintf(
+                    "UPDATE uo_users SET email='%s' WHERE userid='%s'",
+                    DBEscapeString($extraEmail),
+                    DBEscapeString($userid),
+                );
+                $result = DBQuery($query);
+            }
+        }
+    } else {
+        die('Insufficient rights to change user info');
+    }
+}
+
+function AddPoolSelector($userid, $selector)
+{
+    if ($userid == $_SESSION['uid'] || hasEditUsersRight()) {
+        $query = sprintf(
+            "INSERT INTO uo_userproperties (userid, name, value) VALUES ('%s', 'poolselector', '%s')",
+            DBEscapeString($userid),
+            DBEscapeString($selector),
+        );
+        $result = DBQuery($query);
+
+        Log1("security", "add", $userid, $selector, "poolselector");
+        if ($userid == $_SESSION['uid']) {
+            SetUserSessionData($userid);
+        }
+        return true;
+    } else {
+        die('Insufficient rights to change user info');
+    }
+}
+
+function RemoveEditSeason($userid, $propid)
+{
+    if ($userid == $_SESSION['uid'] || hasEditUsersRight()) {
+        $query = sprintf(
+            "DELETE FROM uo_userproperties WHERE prop_id=%d AND userid='%s' AND name='editseason'",
+            (int) $propid,
+            DBEscapeString($userid),
+        );
+        $result = DBQuery($query);
+
+        Log1("security", "delete", $userid, $propid, "editseason");
+        if ($userid == $_SESSION['uid']) {
+            SetUserSessionData($userid);
+        }
+        return true;
+    } else {
+        die('Insufficient rights to change user info');
+    }
+}
+
+
+function AddEditSeason($userid, $season)
+{
+    if ($userid == $_SESSION['uid'] || hasEditUsersRight() || isSeasonAdmin($season)) {
+        $query = sprintf(
+            "SELECT COUNT(*) FROM uo_userproperties 
+			WHERE userid='%s' AND name='editseason' AND value='%s'",
+            DBEscapeString($userid),
+            DBEscapeString($season),
+        );
+        $exist = DBQueryToValue($query);
+
+        if ($exist == 0) {
+            $query = sprintf(
+                "INSERT INTO uo_userproperties (userid, name, value) VALUES ('%s', 'editseason', '%s')",
+                DBEscapeString($userid),
+                DBEscapeString($season),
+            );
+            $result = DBQuery($query);
+
+            Log1("security", "add", $userid, $season, "editseason");
+        }
+        if ($userid == $_SESSION['uid']) {
+            SetUserSessionData($userid);
+        }
+        return true;
+    } else {
+        die('Insufficient rights to change user info');
+    }
+}
+
+function RemoveUserRole($userid, $propid)
+{
+    if (hasEditUsersRight() || $_SESSION['uid'] == $userid) {
+        $query = sprintf(
+            "DELETE FROM uo_userproperties WHERE prop_id=%d AND userid='%s' AND name='userrole'",
+            (int) $propid,
+            DBEscapeString($userid),
+        );
+        $result = DBQuery($query);
+
+        Log1("security", "delete", $userid, $propid, "userrole");
+        if ($userid == $_SESSION['uid']) {
+            SetUserSessionData($userid);
+        }
+        return true;
+    } else {
+        die('Insufficient rights to change user info');
+    }
+}
+
+function AddUserRole($userid, $role)
+{
+    if (hasEditUsersRight()) {
+        $query = sprintf(
+            "SELECT COUNT(*) FROM uo_userproperties WHERE userid='%s' AND name='userrole' AND value='%s'",
+            DBEscapeString($userid),
+            DBEscapeString($role),
+        );
+        if (DBQueryToValue($query) > 0) {
+            return false;
+        }
+
+        $query = sprintf(
+            "INSERT INTO uo_userproperties (userid, name, value) VALUES ('%s', 'userrole', '%s')",
+            DBEscapeString($userid),
+            DBEscapeString($role),
+        );
+        $result = DBQuery($query);
+
+        Log1("security", "add", $userid, $role, "userrole");
+        if ($userid == $_SESSION['uid']) {
+            SetUserSessionData($userid);
+        }
+        return true;
+    } else {
+        die('Insufficient rights to change user info');
+    }
+}
+
+function AddSeasonUserRole($userid, $role, $seasonId)
+{
+    if (hasEditUsersRight() || isSeasonAdmin($seasonId)) {
+
+        $query = sprintf(
+            "SELECT COUNT(*) FROM uo_userproperties WHERE userid='%s' AND name='userrole' AND value='%s'",
+            DBEscapeString($userid),
+            DBEscapeString($role),
+        );
+        $result = DBQueryToValue($query);
+
+        if ($result <= 0) {
+            $query = sprintf(
+                "INSERT INTO uo_userproperties (userid, name, value) VALUES ('%s', 'userrole', '%s')",
+                DBEscapeString($userid),
+                DBEscapeString($role),
+            );
+            $result = DBQuery($query);
+            Log1("security", "add", $userid, $seasonId, $role);
+            AddEditSeason($userid, $seasonId);
+
+            if ($userid == $_SESSION['uid']) {
+                SetUserSessionData($userid);
+            }
+            return true;
+        } else {
+            return false;
+        }
+    } else {
+        die('Insufficient rights to change user info');
+    }
+}
+
+function RemoveSeasonUserRole($userid, $role, $seasonId)
+{
+    if (hasEditUsersRight() || isSeasonAdmin($seasonId)) {
+        $query = sprintf(
+            "DELETE FROM uo_userproperties WHERE userid='%s' AND name='userrole' AND value='%s'",
+            DBEscapeString($userid),
+            DBEscapeString($role),
+        );
+        $result = DBQuery($query);
+
+        if (!UserHasSeasonScopedRole($userid, $seasonId)) {
+            DBQuery(sprintf(
+                "DELETE FROM uo_userproperties WHERE userid='%s' AND name='editseason' AND value='%s'",
+                DBEscapeString($userid),
+                DBEscapeString($seasonId),
+            ));
+        }
+
+        if ($userid == $_SESSION['uid']) {
+            SetUserSessionData($userid);
+        }
+    } else {
+        die('Insufficient rights to change user info');
+    }
+}
+
+/**
+ * Canonical list of event-scoped user role prefixes.
+ *
+ * A "userrole" property stored as "<prefix>:<id>" grants access tied to a
+ * single event (season). This is the single source of truth for which role
+ * prefixes are event-scoped. The per-prefix season resolution in
+ * UserHasSeasonScopedRole() and the season-scoped SQL in
+ * EventUserRoleCleanupPreview() must cover every prefix listed here.
+ *
+ * @return string[]
+ */
+function EventScopedRolePrefixes()
+{
+    return [
+        'seasonadmin',
+        'spiritadmin',
+        'seriesadmin',
+        'teamadmin',
+        'accradmin',
+        'gameadmin',
+        'resadmin',
+        'resgameadmin',
+    ];
+}
+
+function UserHasSeasonScopedRole($userid, $seasonId)
+{
+    $query = sprintf(
+        "SELECT value FROM uo_userproperties WHERE userid='%s' AND name='userrole'",
+        DBEscapeString($userid),
+    );
+    $roles = DBQueryToArray($query);
+
+    foreach ($roles as $row) {
+        $value = explode(':', $row['value'], 2);
+        $roleName = $value[0];
+        $roleValue = isset($value[1]) ? $value[1] : '';
+
+        // Season resolution per prefix listed in EventScopedRolePrefixes().
+        switch ($roleName) {
+            case 'seasonadmin':
+            case 'spiritadmin':
+                if ($roleValue === (string) $seasonId) {
+                    return true;
+                }
+                break;
+            case 'seriesadmin':
+                if (!empty($roleValue) && SeriesSeasonId((int) $roleValue) === $seasonId) {
+                    return true;
+                }
+                break;
+            case 'teamadmin':
+            case 'accradmin':
+                if (!empty($roleValue) && getTeamSeason((int) $roleValue) === $seasonId) {
+                    return true;
+                }
+                break;
+            case 'gameadmin':
+                if (!empty($roleValue) && GameSeason((int) $roleValue) === $seasonId) {
+                    return true;
+                }
+                break;
+            case 'resadmin':
+            case 'resgameadmin':
+                if (!empty($roleValue)) {
+                    if (ReservationSeason((int) $roleValue) === (string) $seasonId) {
+                        return true;
+                    }
+                    foreach (ReservationSeasons((int) $roleValue) as $resSeason) {
+                        if ($resSeason === $seasonId) {
+                            return true;
+                        }
+                    }
+                }
+                break;
+        }
+    }
+
+    return false;
+}
+
+function EventUserRoleCleanupPreview($seasonId)
+{
+    if (!isSuperAdmin()) {
+        die('Insufficient rights to change user info');
+    }
+
+    $escapedSeasonId = DBEscapeString($seasonId);
+    $seasonAdminRole = DBEscapeString('seasonadmin:' . $seasonId);
+    $spiritAdminRole = DBEscapeString('spiritadmin:' . $seasonId);
+
+    // Resolves each event-scoped prefix in EventScopedRolePrefixes() to $seasonId.
+    $query = sprintf(
+        "SELECT up.prop_id, up.userid, up.value
+		FROM uo_userproperties up
+		WHERE up.name='userrole'
+		AND (
+			up.value='%s'
+			OR up.value='%s'
+			OR (
+				SUBSTRING_INDEX(up.value, ':', 1)='seriesadmin'
+				AND EXISTS (
+					SELECT 1 FROM uo_series ser
+					WHERE ser.series_id=CAST(SUBSTRING_INDEX(up.value, ':', -1) AS UNSIGNED)
+					AND ser.season='%s'
+				)
+			)
+			OR (
+				SUBSTRING_INDEX(up.value, ':', 1) IN ('teamadmin', 'accradmin')
+				AND EXISTS (
+					SELECT 1 FROM uo_team team
+					LEFT JOIN uo_series ser ON (team.series=ser.series_id)
+					WHERE team.team_id=CAST(SUBSTRING_INDEX(up.value, ':', -1) AS UNSIGNED)
+					AND ser.season='%s'
+				)
+			)
+			OR (
+				SUBSTRING_INDEX(up.value, ':', 1)='gameadmin'
+				AND EXISTS (
+					SELECT 1 FROM uo_game_pool gp
+					LEFT JOIN uo_pool pool ON (gp.pool=pool.pool_id)
+					LEFT JOIN uo_series ser ON (pool.series=ser.series_id)
+					WHERE gp.game=CAST(SUBSTRING_INDEX(up.value, ':', -1) AS UNSIGNED)
+					AND gp.timetable=1
+					AND ser.season='%s'
+				)
+			)
+			OR (
+				SUBSTRING_INDEX(up.value, ':', 1) IN ('resadmin', 'resgameadmin')
+				AND (
+					EXISTS (
+						SELECT 1 FROM uo_reservation res
+						WHERE res.id=CAST(SUBSTRING_INDEX(up.value, ':', -1) AS UNSIGNED)
+						AND res.season='%s'
+					)
+					OR EXISTS (
+						SELECT 1 FROM uo_game g
+						INNER JOIN uo_game_pool gp ON (gp.game=g.game_id AND gp.timetable=1)
+						LEFT JOIN uo_pool pool ON (pool.pool_id=gp.pool)
+						LEFT JOIN uo_series ser ON (ser.series_id=pool.series)
+						WHERE g.reservation=CAST(SUBSTRING_INDEX(up.value, ':', -1) AS UNSIGNED)
+						AND ser.season='%s'
+					)
+				)
+			)
+		)",
+        $seasonAdminRole,
+        $spiritAdminRole,
+        $escapedSeasonId,
+        $escapedSeasonId,
+        $escapedSeasonId,
+        $escapedSeasonId,
+        $escapedSeasonId,
+    );
+
+    return DBQueryToArray($query);
+}
+
+function DeleteEventUserRoles($seasonId)
+{
+    if (!isSuperAdmin()) {
+        die('Insufficient rights to change user info');
+    }
+
+    return DeleteUserRoleRows(EventUserRoleCleanupPreview($seasonId), "event-access-cleanup");
+}
+
+function DeleteSelectedUsersEventRoles($userids)
+{
+    if (!isSuperAdmin()) {
+        die('Insufficient rights to change user info');
+    }
+
+    $cleanUserIds = [];
+    foreach ((array) $userids as $userid) {
+        $userid = urldecode((string) $userid);
+        if ($userid !== '') {
+            $cleanUserIds[$userid] = true;
+        }
+    }
+
+    if (count($cleanUserIds) === 0) {
+        return 0;
+    }
+
+    $userCriteria = [];
+    foreach (array_keys($cleanUserIds) as $userid) {
+        $userCriteria[] = "'" . DBEscapeString($userid) . "'";
+    }
+
+    $roleCriteria = [];
+    foreach (EventScopedRolePrefixes() as $prefix) {
+        $roleCriteria[] = "value LIKE '" . DBEscapeString($prefix) . ":%'";
+    }
+
+    $query = "SELECT prop_id, userid, value
+		FROM uo_userproperties
+		WHERE name='userrole'
+		AND userid IN (" . implode(",", $userCriteria) . ")
+		AND (" . implode(" OR ", $roleCriteria) . ")";
+
+    return DeleteUserRoleRows(DBQueryToArray($query), "user-access-cleanup");
+}
+
+function DeleteUserRoleRows($rows, $source)
+{
+    if (!isSuperAdmin()) {
+        die('Insufficient rights to change user info');
+    }
+
+    if (count($rows) === 0) {
+        return 0;
+    }
+
+    $propIds = [];
+    $currentUserAffected = false;
+    foreach ($rows as $row) {
+        $propIds[] = (int) $row['prop_id'];
+        if ($row['userid'] === $_SESSION['uid']) {
+            $currentUserAffected = true;
+        }
+    }
+
+    DBExecute(sprintf(
+        "DELETE FROM uo_userproperties WHERE name='userrole' AND prop_id IN (%s)",
+        implode(",", $propIds),
+    ));
+
+    foreach ($rows as $row) {
+        Log1("security", "delete", $row['userid'], $row['prop_id'], $row['value'], $source);
+    }
+
+    if ($currentUserAffected) {
+        SetUserSessionData($_SESSION['uid']);
+    }
+
+    return count($rows);
+}
+
+function GetTeamAdmins($teamId)
+{
+    $seasonrights = getEditSeasons($_SESSION['uid']);
+    $season = TeamSeason($teamId);
+
+    if (isSuperAdmin() || isset($seasonrights[$season])) {
+        $query = sprintf(
+            "SELECT pu.userid, pu.name, pu.email FROM uo_userproperties pup
+				LEFT JOIN uo_users pu ON(pup.userid=pu.userid)
+				WHERE pup.value='%s' ORDER BY pu.name ASC",
+            DBEscapeString('teamadmin:' . $teamId),
+        );
+        return DBQueryToArray($query);
+    } else {
+        die('Insufficient rights to access user info');
+    }
+}
+
+function DeleteUser($userid)
+{
+    if ($userid != "anonymous") {
+        if (hasEditUsersRight()) {
+            $query = sprintf(
+                "DELETE FROM uo_userproperties WHERE userid='%s'",
+                DBEscapeString($userid),
+            );
+            $result = DBQuery($query);
+
+            $query = sprintf(
+                "DELETE FROM uo_users WHERE userid='%s'",
+                DBEscapeString($userid),
+            );
+            $result = DBQuery($query);
+
+            Log1("security", "delete", $userid, "", "user");
+        } else {
+            die('Insufficient rights to delete user');
+        }
+    } else {
+        die('Can not delete anonymous user');
+    }
+}
+
+function DeleteRegisterRequest($userid)
+{
+    if ($userid != "anonymous") {
+        if (hasEditUsersRight()) {
+            Log1("security", "delete", $userid, "", "RegisterRequest");
+            $query = sprintf(
+                "DELETE FROM uo_registerrequest WHERE userid='%s'",
+                DBEscapeString($userid),
+            );
+            $result = DBQuery($query);
+        } else {
+            die('Insufficient rights to delete user');
+        }
+    } else {
+        die('Can not delete anonymous user');
+    }
+}
+
+function CreateConfirmedUser($userid, $passwordHash, $name, $email = '', $logContext = '')
+{
+    $email = trim((string) $email);
+    $emailValue = $email === '' ? "NULL" : "'" . DBEscapeString($email) . "'";
+
+    $query = sprintf(
+        "INSERT INTO uo_users (name, userid, password, email) VALUES ('%s', '%s', '%s', %s)",
+        DBEscapeString($name),
+        DBEscapeString($userid),
+        DBEscapeString($passwordHash),
+        $emailValue,
+    );
+    $result = DBQuery($query);
+
+    if (!$result) {
+        return false;
+    }
+
+    FinalizeNewUser($userid, $email);
+    if (!empty($logContext)) {
+        Log1("user", "add", $userid, "", $logContext);
+    }
+
+    return true;
+}
+
+function CreateUserAccount($userid, $password, $name, $email = '', $logContext = '')
+{
+    return CreateConfirmedUser($userid, hashUserPassword($password), $name, $email, $logContext);
+}
+
+function AddRegisterRequest($newUsername, $newPassword, $newName, $newEmail, $message = 'register.txt')
+{
+    if (function_exists('IsEmailDisabled') && IsEmailDisabled()) {
+        return false;
+    }
+
+    Log1("user", "add", $newUsername, "", "register request");
+    $token = uuidSecure();
+    $query = sprintf(
+        "INSERT INTO uo_registerrequest (userid, password, name, email, token) VALUES ('%s', '%s', '%s', '%s', '%s')",
+        DBEscapeString($newUsername),
+        DBEscapeString(hashUserPassword($newPassword)),
+        DBEscapeString($newName),
+        DBEscapeString($newEmail),
+        DBEscapeString($token),
+    );
+    $result = DBQuery($query);
+
+    $message = file_get_contents('locale/' . GetSessionLocale() . '/LC_MESSAGES/' . $message);
+
+    $baseUrl = defined('BASEURL') ? rtrim(BASEURL, '/') : '';
+    $url = $baseUrl . "/?view=register&token=" . $token;
+
+    $message = str_replace(['$url', '$ultiorganizer'], [$url, _("Ultiorganizer")], $message);
+    $headers  = "MIME-Version: 1.0" . "\r\n";
+    $headers .= "Content-type: text/plain; charset=UTF-8" . "\r\n";
+
+    global $serverConf;
+    $headers .= "From: " . $serverConf['EmailSource'] . "\r\n";
+
+    if (!mail($newEmail, _("Confirm your account to ultiorganizer"), $message, $headers)) {
+        $query = sprintf(
+            "DELETE FROM uo_registerrequest WHERE userid='%s'",
+            DBEscapeString($newUsername),
+        );
+        $result = DBQuery($query);
+
+        return false;
+    } else {
+        return true;
+    }
+}
+
+
+function emailUsed($email)
+{
+    $query = sprintf(
+        "select email from uo_users where LOWER(email)='%s' 
+		union all select email from uo_extraemail where LOWER(email)='%s' 
+		union all select email from uo_extraemailrequest where LOWER(email)='%s'",
+        DBEscapeString(strtolower($email)),
+        DBEscapeString(strtolower($email)),
+        DBEscapeString(strtolower($email)),
+    );
+    $result = DBQueryToValue($query);
+
+    if ($result) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+function AddExtraEmailRequest($userid, $extraEmail, $message = 'verify_email.txt')
+{
+    if (function_exists('IsEmailDisabled') && IsEmailDisabled()) {
+        return false;
+    }
+
+    Log1("user", "add", $userid, "", "extra email request");
+    $token = uuidSecure();
+    $query = sprintf(
+        "INSERT INTO uo_extraemailrequest (userid, email, token) VALUES ('%s', '%s', '%s')",
+        DBEscapeString($userid),
+        DBEscapeString($extraEmail),
+        DBEscapeString($token),
+    );
+    $result = DBQuery($query);
+
+    $message = file_get_contents('locale/' . GetSessionLocale() . '/LC_MESSAGES/' . $message);
+
+    $baseUrl = defined('BASEURL') ? rtrim(BASEURL, '/') : '';
+    $url = $baseUrl . "/?view=user/addextraemail&token=" . $token;
+
+    $message = str_replace(['$url', '$ultiorganizer'], [$url, _("Ultiorganizer")], $message);
+    $headers  = "MIME-Version: 1.0" . "\r\n";
+    $headers .= "Content-type: text/plain; charset=UTF-8" . "\r\n";
+
+    global $serverConf;
+    $headers .= "From: " . $serverConf['EmailSource'] . "\r\n";
+
+    if (!mail($extraEmail, _("Confirm extra email address for ultiorganizer"), $message, $headers)) {
+        $query = sprintf(
+            "DELETE FROM uo_extraemailrequest WHERE token='%s'",
+            DBEscapeString($token),
+        );
+        $result = DBQuery($query);
+
+        return false;
+    } else {
+        return true;
+    }
+}
+
+function RegisterUIDByToken($token)
+{
+    $query = sprintf(
+        "SELECT userid FROM uo_registerrequest WHERE token='%s'",
+        DBEscapeString($token),
+    );
+    $result = DBQuery($query);
+
+    if ($row = mysqli_fetch_assoc($result)) {
+        return $row['userid'];
+    }
+    return false;
+}
+
+function ConfirmRegister($token)
+{
+    $query = sprintf(
+        "SELECT userid, password, name, email FROM uo_registerrequest WHERE token='%s'",
+        DBEscapeString($token),
+    );
+    $result = DBQuery($query);
+
+    if ($row = mysqli_fetch_assoc($result)) {
+        if (CreateConfirmedUser($row['userid'], $row['password'], $row['name'], $row['email'], "confirm register request")) {
+            $query = sprintf(
+                "DELETE FROM uo_registerrequest WHERE token='%s'",
+                DBEscapeString($token),
+            );
+            DBQuery($query);
+            return true;
+        }
+    } else {
+        return false;
+    }
+
+    return false;
+}
+
+
+function ConfirmRegisterUID($userid)
+{
+    if (isSuperAdmin()) {
+        $query = sprintf(
+            "SELECT userid, password, name, email FROM uo_registerrequest WHERE userid='%s'",
+            DBEscapeString($userid),
+        );
+        $result = DBQuery($query);
+
+        if ($row = mysqli_fetch_assoc($result)) {
+            if (CreateConfirmedUser($row['userid'], $row['password'], $row['name'], $row['email'], "added by administrator")) {
+                $query = sprintf(
+                    "DELETE FROM uo_registerrequest WHERE userid='%s'",
+                    DBEscapeString($userid),
+                );
+                DBQuery($query);
+                return true;
+            }
+        } else {
+            return false;
+        }
+    } else {
+        die("Insufficient user rights.");
+    }
+}
+
+function FinalizeNewUser($userid, $email)
+{
+    $query = sprintf(
+        "INSERT INTO uo_userproperties (userid, name, value) VALUES ('%s', 'poolselector', 'currentseason')",
+        DBEscapeString($userid),
+    );
+    $result = DBQuery($query);
+
+    $email = trim((string) $email);
+    if ($email === '') {
+        return;
+    }
+
+    $query = sprintf(
+        "SELECT DISTINCT profile_id FROM uo_player_profile WHERE LOWER(email)='%s'",
+        DBEscapeString(strtolower($email)),
+    );
+    $result = DBQuery($query);
+
+    while ($accreditation = mysqli_fetch_row($result)) {
+        $query = sprintf(
+            "INSERT INTO uo_userproperties (userid, name, value) VALUES ('%s', 'userrole', 'playeradmin:%s')",
+            DBEscapeString($userid),
+            DBEscapeString($accreditation[0]),
+        );
+        $result1 = DBQuery($query);
+    }
+}
+
+function ConfirmEmail($token)
+{
+    $query = sprintf(
+        "SELECT userid, email FROM uo_extraemailrequest WHERE token='%s'",
+        DBEscapeString($token),
+    );
+    $result = DBQuery($query);
+
+    if ($row = mysqli_fetch_assoc($result)) {
+        $query = sprintf(
+            "INSERT INTO uo_extraemail (userid, email) VALUES ('%s', '%s')",
+            DBEscapeString($row['userid']),
+            DBEscapeString($row['email']),
+        );
+        $result = DBQuery($query);
+
+        $query = sprintf(
+            "DELETE FROM uo_extraemailrequest WHERE token='%s'",
+            DBEscapeString($token),
+        );
+        $result = DBQuery($query);
+
+
+        $query = sprintf(
+            "SELECT DISTINCT profile_id FROM uo_player_profile WHERE LOWER(email)='%s'",
+            DBEscapeString(strtolower($row['email'])),
+        );
+        $result = DBQuery($query);
+
+        while ($accreditation = mysqli_fetch_row($result)) {
+            $query = sprintf(
+                "INSERT INTO uo_userproperties (userid, name, value) VALUES ('%s', 'userrole', 'playeradmin:%s')",
+                DBEscapeString($row['userid']),
+                DBEscapeString($accreditation[0]),
+            );
+            $result1 = DBQuery($query);
+        }
+
+
+        Log1("user", "add", $row['userid'], "", "confirm extra email");
+        return true;
+    } else {
+        return false;
+    }
+}
+
+function uuidSecure()
+{
+
+    $pr_bits = null;
+    $fp = @fopen('/dev/urandom', 'rb');
+    if ($fp !== false) {
+        $pr_bits .= @fread($fp, 16);
+        @fclose($fp);
+    } else {
+        // If /dev/urandom isn't available (eg: in non-unix systems), use mt_rand().
+        $pr_bits = "";
+        for ($cnt = 0; $cnt < 16; $cnt++) {
+            $pr_bits .= chr(mt_rand(0, 255));
+        }
+    }
+
+    $time_low = bin2hex(substr($pr_bits, 0, 4));
+    $time_mid = bin2hex(substr($pr_bits, 4, 2));
+    $time_hi_and_version = bin2hex(substr($pr_bits, 6, 2));
+    $clock_seq_hi_and_reserved = bin2hex(substr($pr_bits, 8, 2));
+    $node = bin2hex(substr($pr_bits, 10, 6));
+
+    /**
+     * Set the four most significant bits (bits 12 through 15) of the
+     * time_hi_and_version field to the 4-bit version number from
+     * Section 4.1.3.
+     * @see http://tools.ietf.org/html/rfc4122#section-4.1.3
+     */
+    $time_hi_and_version = hexdec($time_hi_and_version);
+    $time_hi_and_version = $time_hi_and_version >> 4;
+    $time_hi_and_version = $time_hi_and_version | 0x4000;
+
+    /**
+     * Set the two most significant bits (bits 6 and 7) of the
+     * clock_seq_hi_and_reserved to zero and one, respectively.
+     */
+    $clock_seq_hi_and_reserved = hexdec($clock_seq_hi_and_reserved);
+    $clock_seq_hi_and_reserved = $clock_seq_hi_and_reserved >> 2;
+    $clock_seq_hi_and_reserved = $clock_seq_hi_and_reserved | 0x8000;
+
+    return sprintf(
+        '%08s-%04s-%04x-%04x-%012s',
+        $time_low,
+        $time_mid,
+        $time_hi_and_version,
+        $clock_seq_hi_and_reserved,
+        $node,
+    );
+}
+
+function TeamResponsibilities($userid, $season)
+{
+    $teams = SeasonTeams($season);
+    $seasonTeamAdmin = [];
+    foreach ($teams as $team) {
+        if (isset($_SESSION['userproperties']['userrole']['teamadmin'][$team['team_id']])) {
+            $seasonTeamAdmin[] = $team['team_id'];
+        }
+    }
+    return $seasonTeamAdmin;
+}
+
+function GameResponsibilities($season)
+{
+    $query = sprintf("SELECT DISTINCT game_id FROM uo_game WHERE ");
+    $criteria = "";
+    if (isSeasonAdmin($season)) {
+        $criteria = sprintf(
+            "game_id IN (
+				SELECT game FROM uo_game_pool WHERE pool IN (
+					SELECT pool_id FROM uo_pool WHERE series IN (
+						SELECT series_id FROM uo_series WHERE season='%s'
+					)
+				)
+			)",
+            DBEscapeString($season),
+        );
+    } else {
+        // SeriesAdmin
+        $seriesResult = SeasonSeries($season);
+        $seasonSeriesAdmin = [];
+        foreach ($seriesResult as $row) {
+            if (isset($_SESSION['userproperties']['userrole']['seriesadmin'][$row['series_id']])) {
+                $seasonSeriesAdmin[] = $row['series_id'];
+            }
+        }
+        if (count($seasonSeriesAdmin) > 0) {
+            $criteria = "(game_id IN (
+				SELECT game FROM uo_game_pool WHERE pool IN (
+					SELECT pool_id FROM uo_pool WHERE series IN (" . implode(",", $seasonSeriesAdmin) . ")
+				)
+			))";
+        }
+
+        // TeamAdmin
+        $teams = SeasonTeams($season);
+        $seasonTeamAdmin = [];
+        foreach ($teams as $team) {
+            if (isset($_SESSION['userproperties']['userrole']['teamadmin'][$team['team_id']])) {
+                $seasonTeamAdmin[] = $team['team_id'];
+            }
+        }
+        if (count($seasonTeamAdmin) > 0) {
+            if (strlen($criteria) > 0) {
+                $criteria .= " OR ";
+            }
+            $criteria .= "(hometeam IN (" . implode(",", $seasonTeamAdmin) . ") OR visitorteam IN (" . implode(",", $seasonTeamAdmin) . "))";
+        }
+        if (isset($_SESSION['userproperties']['userrole']['gameadmin'])) {
+            // GameAdmin
+            $respGames = $_SESSION['userproperties']['userrole']['gameadmin'];
+            $seasonGames = [];
+            foreach ($respGames as $gameId => $propId) {
+                if (GameSeason($gameId) == $season) {
+                    $seasonGames[] = $gameId;
+                }
+            }
+            if (count($seasonGames) > 0) {
+                if (strlen($criteria) > 0) {
+                    $criteria .= " OR ";
+                }
+                $criteria .= "(game_id IN (" . implode(",", $seasonGames) . "))";
+            }
+        }
+        if (isset($_SESSION['userproperties']['userrole']['resgameadmin'])) {
+            // ResGameAdmin
+            $respResvs = $_SESSION['userproperties']['userrole']['resgameadmin'];
+            $seasonResvs = [];
+            foreach ($respResvs as $resId => $propId) {
+                foreach (ReservationSeasons($resId) as $resSeason) {
+                    if ($resSeason == $season) {
+                        $seasonResvs[] = $resId;
+                        break;
+                    }
+                }
+            }
+            if (count($seasonResvs) > 0) {
+                if (strlen($criteria) > 0) {
+                    $criteria .= " OR ";
+                }
+                $criteria .= "(reservation IN (" . implode(",", $seasonResvs) . "))";
+            }
+        }
+    }
+    if (strlen($criteria) == 0) {
+        return [];
+    } else {
+
+        $query .= $criteria;
+        $result = DBQueryToArray($query);
+
+        return $result;
+    }
+}
+
+function GameResponsibilityArray($season, $series = null)
+{
+    $series = (int) $series;
+    $gameResponsibilities = GameResponsibilities($season);
+    if (!$gameResponsibilities) {
+        return [];
+    }
+    $query = sprintf(
+        "SELECT pp.game_id, hometeam, kj.name as hometeamname, visitorteam,
+			vj.name as visitorteamname, gp.pool as pool, time, homescore, visitorscore,
+			pool.timecap, pool.timeslot, pool.series, res.reservationgroup,
+			ser.name, pool.name as poolname, res.id as res_id, res.starttime,
+			loc.name AS locationname, res.fieldname AS fieldname, res.location,
+			COALESCE(m.goals,0) AS goals, phome.name AS phometeamname, pvisitor.name AS pvisitorteamname,
+	        pp.isongoing, pp.hasstarted
+		FROM uo_game pp
+			INNER JOIN uo_game_pool gp ON (gp.game=pp.game_id AND gp.timetable=1)
+			left join uo_reservation res on (pp.reservation=res.id)
+			left join uo_pool pool on (pool.pool_id=gp.pool)
+			left join uo_series ser on (pool.series=ser.series_id)
+			left join uo_location loc on (res.location=loc.id)
+			left join uo_team kj on (pp.hometeam=kj.team_id)
+			left join uo_team vj on (pp.visitorteam=vj.team_id)
+			LEFT JOIN uo_scheduling_name AS phome ON (pp.scheduling_name_home=phome.scheduling_id)
+			LEFT JOIN uo_scheduling_name AS pvisitor ON (pp.scheduling_name_visitor=pvisitor.scheduling_id)
+			left join (SELECT COUNT(*) AS goals, game FROM uo_goal GROUP BY game) AS m ON (pp.game_id=m.game)
+        WHERE pp.game_id IN (" . implode(",", array_column($gameResponsibilities, 'game_id')) . ")"
+            . ($series > 0 ? " AND pool.series=%d" : "") . "
+		ORDER BY res.starttime ASC, res.reservationgroup ASC, res.fieldname+0,pp.time ASC",
+        $series,
+    );
+
+    $result = DBQuery($query);
+
+    $ret = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        if (!isset($ret[$row['reservationgroup']])) {
+            $ret[$row['reservationgroup']] = [];
+        }
+        if (!isset($ret[$row['reservationgroup']][$row['res_id']])) {
+            $ret[$row['reservationgroup']][$row['res_id']] = [];
+        }
+        $gamesArray = $ret[$row['reservationgroup']][$row['res_id']];
+        $gamesArray['starttime'] = $row['starttime'];
+        $gamesArray['locationname'] = utf8entities(ReservationPlaceText(U_($row['locationname']), U_($row['fieldname'])));
+        $gamesArray[$row['game_id']] = $row;
+        $ret[$row['reservationgroup']][$row['res_id']] = $gamesArray;
+    }
+    return  $ret;
+}
+
+function UserResetPassword($userId)
+{
+    if (function_exists('IsEmailDisabled') && IsEmailDisabled()) {
+        return false;
+    }
+
+    Log1("user", "change", $userId, "", "request password reset");
+
+    $query = sprintf(
+        "SELECT email FROM uo_users WHERE userid='%s'",
+        DBEscapeString($userId),
+    );
+    $result = DBQuery($query);
+
+    $row = mysqli_fetch_assoc($result);
+
+    $email = $row ? $row['email'] : null;
+    if (!empty($email)) {
+        $token = uuidSecure();
+        $query = sprintf(
+            "DELETE FROM uo_passwordresetrequest WHERE userid='%s'",
+            DBEscapeString($userId),
+        );
+        DBQuery($query);
+
+        $query = sprintf(
+            "INSERT INTO uo_passwordresetrequest (userid, token) VALUES ('%s', '%s')",
+            DBEscapeString($userId),
+            DBEscapeString($token),
+        );
+        DBQuery($query);
+
+        $baseUrl = defined('BASEURL') ? rtrim(BASEURL, '/') : '';
+        if (empty($baseUrl)) {
+            $baseUrl = GetURLBase();
+        }
+        $url = $baseUrl . "/?view=login/password_reset&token=" . urlencode($token);
+        $locale = getSessionLocale();
+        $message = file_get_contents('locale/' . $locale . '/LC_MESSAGES/pwd_reset.txt');
+        $message = str_replace('$url', $url, $message);
+        $message = str_replace('$username', $userId, $message);
+
+        $headers  = "MIME-Version: 1.0" . "\r\n";
+        $headers .= "Content-type: text/plain; charset=UTF-8" . "\r\n";
+
+        global $serverConf;
+        $headers .= "From: " . $serverConf['EmailSource'] . "\r\n";
+
+        if (mail($email, _("Password reset request for Ultiorganizer"), $message, $headers)) {
+            return true;
+        } else {
+            $query = sprintf(
+                "DELETE FROM uo_passwordresetrequest WHERE token='%s'",
+                DBEscapeString($token),
+            );
+            DBQuery($query);
+            return false;
+        }
+    } else {
+        return false;
+    }
+}
+
+function PasswordResetUIDByToken($token)
+{
+    $query = sprintf(
+        "SELECT userid FROM uo_passwordresetrequest WHERE token='%s'",
+        DBEscapeString($token),
+    );
+    $result = DBQuery($query);
+
+    if ($row = mysqli_fetch_assoc($result)) {
+        return $row['userid'];
+    }
+    return false;
+}
+
+function ConfirmPasswordReset($token, $newPassword)
+{
+    $userId = PasswordResetUIDByToken($token);
+    if (!$userId) {
+        return false;
+    }
+
+    updateUserPasswordHash($userId, $newPassword);
+    Log1("user", "change", $userId, "", "confirm password reset");
+
+    $query = sprintf(
+        "DELETE FROM uo_passwordresetrequest WHERE userid='%s'",
+        DBEscapeString($userId),
+    );
+    DBQuery($query);
+
+    return true;
+}
+
+function CreateNewUsername($firstname, $lastname, $email)
+{
+    $firstname = strtolower($firstname);
+    $lastname = strtolower($lastname);
+    $emailSplitted = explode("@", strtolower($email));
+    $emailStart = $emailSplitted[0];
+    $try = substr($firstname, 0, 1) . $lastname;
+    if (!isRegistered($try)) {
+        return $try;
+    }
+    if (!isRegistered($emailStart)) {
+        return $emailStart;
+    }
+    if (!isRegistered($firstname . "." . $lastname)) {
+        return $firstname . "." . $lastname;
+    }
+    $extra = 0;
+    while (true) {
+        $extra++;
+        if (!isRegistered($try . $extra)) {
+            return $try . $extra;
+        }
+        if (!isRegistered($emailStart . $extra)) {
+            return $emailStart . $extra;
+        }
+        if (!isRegistered($firstname . "." . $lastname . $extra)) {
+            return $firstname . "." . $lastname . $extra;
+        }
+    }
+}
+
+function UserCreateRandomPassword()
+{
+    $chars = "abcdefghijkmnopqrstuvwxyz023456789";
+    $length = 12;
+    $password = '';
+    $maxIndex = strlen($chars) - 1;
+    for ($i = 0; $i < $length; $i++) {
+        $password .= $chars[random_int(0, $maxIndex)];
+    }
+    return $password;
+}
