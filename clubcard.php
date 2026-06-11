@@ -161,9 +161,7 @@ if ($teams) {
     $html .= "</table>\n";
 }
 
-$teams = array_values(array_filter(ClubTeamsHistory($clubId), function ($team) {
-    return CanAccessSeason($team['season']);
-}));
+$teams = ClubTeamsHistory($clubId);
 $sqlClubTeams = "";
 if (count($teams)) {
     $sqlClubTeams .= "(";

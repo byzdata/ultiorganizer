@@ -48,9 +48,7 @@ if (!empty($season)) {
     }
 }
 
-$teams = array_values(array_filter(CountryTeams($countryId), function ($team) {
-    return CanAccessSeason($team['season']);
-}));
+$teams = CountryTeams($countryId);
 if (count($teams)) {
 
     $national_html = "";

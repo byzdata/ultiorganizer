@@ -94,7 +94,7 @@ function ClearSeasonRuntimeCache()
  */
 function CurrentSeason()
 {
-    if (isset($_SESSION['userproperties']['selseason']) && CanAccessSeason($_SESSION['userproperties']['selseason'])) {
+    if (isset($_SESSION['userproperties']['selseason'])) {
         return $_SESSION['userproperties']['selseason'];
     }
 
@@ -113,12 +113,10 @@ function CurrentSeason()
  */
 function CurrentSeasons()
 {
-    $seasons = CacheRemember('current_seasons', 'default', function () {
+    return CacheRemember('current_seasons', 'default', function () {
         $query = sprintf("SELECT season_id AS season_id, name FROM uo_season WHERE iscurrent=1 ORDER BY starttime DESC");
         return DBQueryToArray($query);
     });
-
-    return FilterAccessibleSeasons($seasons);
 }
 
 /**
@@ -201,7 +199,7 @@ function IsSeasonPublicExternal($seasonId)
     }
 
     $seasonInfo = SeasonInfo($seasonId);
-    return is_array($seasonInfo) && !empty($seasonInfo['public_event']) && !empty($seasonInfo['api_public']);
+    return is_array($seasonInfo) && !empty($seasonInfo['api_public']);
 }
 
 /**
@@ -223,45 +221,6 @@ function RequireSeasonPublicExternal($seasonId)
     echo "Event is not available for external access.";
     CloseConnection();
     exit();
-}
-
-/**
- * Returns true when the event exists and is published on normal public pages.
- *
- * @param string $seasonId uo_season.season_id
- * @return bool
- */
-function IsSeasonPublicEvent($seasonId)
-{
-    if ($seasonId === null || $seasonId === '') {
-        return false;
-    }
-
-    $seasonInfo = SeasonInfo($seasonId);
-    return is_array($seasonInfo) && !empty($seasonInfo['public_event']);
-}
-
-/**
- * Returns true if the current user may access normal pages for an event.
- *
- * @param string $seasonId uo_season.season_id
- * @return bool
- */
-function CanAccessSeason($seasonId)
-{
-    if (empty($seasonId)) {
-        return true;
-    }
-    if (IsSeasonPublicEvent($seasonId)) {
-        return true;
-    }
-    if (function_exists('isSuperAdmin') && isSuperAdmin()) {
-        return true;
-    }
-    if (isset($_SESSION['uid']) && function_exists('UserHasSeasonScopedRole')) {
-        return UserHasSeasonScopedRole($_SESSION['uid'], $seasonId);
-    }
-    return false;
 }
 
 /**
@@ -332,18 +291,6 @@ function MaintenanceSeasonFromView($rawView)
             (int) iget("pool"),
         ));
     }
-    if (iget("pools")) {
-        $poolIds = array_filter(array_map('intval', explode(",", iget("pools"))));
-        if (!empty($poolIds)) {
-            return DBQueryToValue(sprintf(
-                "SELECT ser.season
-       FROM uo_pool pool
-       LEFT JOIN uo_series ser ON (ser.series_id=pool.series)
-       WHERE pool.pool_id=%d",
-                (int) reset($poolIds),
-            ));
-        }
-    }
     if (iget("game")) {
         return DBQueryToValue(sprintf(
             "SELECT ser.season
@@ -354,9 +301,6 @@ function MaintenanceSeasonFromView($rawView)
        WHERE game.game_id=%d",
             (int) iget("game"),
         ));
-    }
-    if (iget("reservation") && function_exists('ReservationSeason')) {
-        return ReservationSeason(iget("reservation"));
     }
     if (iget("team")) {
         return MaintenanceSeasonFromTeam(iget("team"));
@@ -437,38 +381,6 @@ function EnforceSoftMaintenanceForView($rawView)
     }
 }
 
-function EnforcePrivateEventAccessForView($rawView)
-{
-    $view = preg_replace('/\.php$/i', '', (string) $rawView);
-    if ($view === "" || $view === "index" || $view === "frontpage" || strpos($view, "admin/") === 0 || in_array($view, ["login", "logout"], true)) {
-        return;
-    }
-
-    // Two-team pages (e.g. gamecard) must be accessible for every team's
-    // event. MaintenanceSeasonFromView() returns only one representative
-    // season here (tuned for maintenance), so check each team directly.
-    if (iget("team1")) {
-        foreach ([iget("team1"), iget("team2")] as $teamId) {
-            if (empty($teamId)) {
-                continue;
-            }
-            $teamSeason = MaintenanceSeasonFromTeam($teamId);
-            if (!empty($teamSeason) && !CanAccessSeason($teamSeason)) {
-                header("location:?view=frontpage");
-                exit();
-            }
-        }
-    }
-
-    $seasonId = MaintenanceSeasonFromView($rawView);
-    if (empty($seasonId) || CanAccessSeason($seasonId)) {
-        return;
-    }
-
-    header("location:?view=frontpage");
-    exit();
-}
-
 /**
  * Marks event (season) read-only.
  *
@@ -536,13 +448,6 @@ function Seasons($filter = null, $ordering = null)
     return DBQueryToArray(trim($query));
 }
 
-function FilterAccessibleSeasons($seasons)
-{
-    return array_values(array_filter($seasons, function ($season) {
-        return CanAccessSeason($season['season_id']);
-    }));
-}
-
 /**
  * Returns seasons published for public external outputs.
  *
@@ -555,7 +460,7 @@ function PublicExternalSeasons($ordering = null)
         $ordering = ["season.starttime" => "DESC"];
     }
     $orderby = CreateOrdering(["uo_season" => "season"], $ordering);
-    $query = sprintf("SELECT season_id, name FROM uo_season season WHERE season.public_event=1 AND season.api_public=1 $orderby");
+    $query = sprintf("SELECT season_id, name FROM uo_season season WHERE season.api_public=1 $orderby");
     return DBQueryToArray(trim($query));
 }
 
@@ -566,7 +471,7 @@ function PublicExternalSeasons($ordering = null)
  */
 function SeasonsAllInfo()
 {
-    $query = "SELECT season_id, name, starttime, endtime, iscurrent, public_event, api_public, maintenance_mode, type, istournament, isinternational, isnationalteams
+    $query = "SELECT season_id, name, starttime, endtime, iscurrent, api_public, maintenance_mode, type, istournament, isinternational, isnationalteams
     FROM uo_season
     ORDER BY starttime DESC";
     return DBQueryToArray($query);
@@ -583,7 +488,7 @@ function SeasonsByType($seasontype)
 {
     $query = sprintf("SELECT season_id AS season_id, name FROM uo_season WHERE type='%s'
 		ORDER BY starttime DESC", DBEscapeString($seasontype));
-    return FilterAccessibleSeasons(DBQueryToArray($query));
+    return DBQueryToArray($query);
 }
 
 /**
@@ -597,9 +502,6 @@ function EnrollSeasons()
     $seasonRows = DBQueryToArray($query);
     $seasons = [];
     foreach ($seasonRows as $season) {
-        if (!CanAccessSeason($season['season_id'])) {
-            continue;
-        }
         $seasons[$season['season_id']] = $season['name'];
     }
 
@@ -1006,7 +908,6 @@ function DeleteSeason($seasonId)
  *     hometeammode: mixed,
  *     event_readonly: mixed,
  *     maintenance_mode: mixed,
- *     public_event: mixed,
  *     api_public: mixed,
  *     timezone: mixed
  * } $params uo_season fields
@@ -1016,17 +917,13 @@ function DeleteSeason($seasonId)
 function AddSeason($seasonId, $params, $comment = null)
 {
     if (isSuperAdmin()) {
-        if (SeasonExists($seasonId)) {
-            return false;
-        }
-
         $query = sprintf(
             "
 			INSERT INTO uo_season 
 			(season_id, name, type, istournament, isinternational, organizer, category, isnationalteams,
 			starttime, endtime, iscurrent, enrollopen, enroll_deadline, spiritmode, showspiritpoints, showspiritcomments,
-			showspiritpointsonlyoncomplete, lockteamspiritonsubmit, use_season_points, hide_time_on_scoresheet, hometeammode, event_readonly, maintenance_mode, public_event, api_public, timezone)
-			VALUES ('%s', '%s', '%s', %d, %d, '%s', '%s', '%d', '%s', '%s', %d, %d, '%s', %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, '%s')",
+			showspiritpointsonlyoncomplete, lockteamspiritonsubmit, use_season_points, hide_time_on_scoresheet, hometeammode, event_readonly, maintenance_mode, api_public, timezone)
+			VALUES ('%s', '%s', '%s', %d, %d, '%s', '%s', '%d', '%s', '%s', %d, %d, '%s', %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, '%s')",
             DBEscapeString($seasonId),
             DBEscapeString($params['name']),
             DBEscapeString($params['type']),
@@ -1050,21 +947,13 @@ function AddSeason($seasonId, $params, $comment = null)
             (int) $params['hometeammode'],
             (int) $params['event_readonly'],
             (int) $params['maintenance_mode'],
-            (int) $params['public_event'],
             (int) $params['api_public'],
             DBEscapeString($params['timezone']),
         );
 
         Log1("season", "add", $seasonId);
 
-        try {
-            $result = DBExecute($query);
-        } catch (mysqli_sql_exception $e) {
-            if ($e->getCode() === 1062) {
-                return false;
-            }
-            throw $e;
-        }
+        $result = DBExecute($query);
 
         if ($result && isset($comment)) {
             SetComment(1, $seasonId, $comment);
@@ -1110,7 +999,6 @@ function AddSeason($seasonId, $params, $comment = null)
  *     hometeammode: mixed,
  *     event_readonly: mixed,
  *     maintenance_mode: mixed,
- *     public_event: mixed,
  *     api_public: mixed,
  *     timezone: mixed
  * } $params uo_season fields
@@ -1127,7 +1015,7 @@ function SetSeason($seasonId, $params, $comment = null)
 			organizer='%s', category='%s', isnationalteams='%d',
 			starttime='%s', endtime='%s', iscurrent=%d, enrollopen=%d, enroll_deadline='%s',
 			spiritmode=%d, showspiritpoints=%d, showspiritcomments=%d, showspiritpointsonlyoncomplete=%d, lockteamspiritonsubmit=%d,
-			use_season_points=%d, hide_time_on_scoresheet=%d, hometeammode=%d, event_readonly=%d, maintenance_mode=%d, public_event=%d, api_public=%d, timezone='%s'
+			use_season_points=%d, hide_time_on_scoresheet=%d, hometeammode=%d, event_readonly=%d, maintenance_mode=%d, api_public=%d, timezone='%s'
 			WHERE season_id='%s'",
             DBEscapeString($seasonId),
             DBEscapeString($params['name']),
@@ -1152,7 +1040,6 @@ function SetSeason($seasonId, $params, $comment = null)
             (int) $params['hometeammode'],
             (int) $params['event_readonly'],
             (int) $params['maintenance_mode'],
-            (int) $params['public_event'],
             (int) $params['api_public'],
             DBEscapeString($params['timezone']),
             DBEscapeString($seasonId),

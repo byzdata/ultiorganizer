@@ -1,6 +1,0 @@
-Tämä viesti lähetettiin sinulle, koska palveluun $ultiorganizer on luotu käyttäjätili,
-jonka avulla voit hallita pelaajaprofiiliasi.
-
-Seuraa alla olevaa linkkiä tai kopioi se selaimesi osoiteriville vahvistaaksesi käyttäjätilisi.
-
-$url
