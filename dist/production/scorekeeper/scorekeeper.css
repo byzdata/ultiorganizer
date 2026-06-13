@@ -1,0 +1,6 @@
+/*
+ * Deprecated compatibility wrapper.
+ * Scorekeeper and Spiritkeeper now load cust/<CUSTOMIZATIONS>/ultiorganizer-mobile.css
+ * (or cust/default/ultiorganizer-mobile.css) directly from their entrypoints.
+ */
+@import url("../cust/default/ultiorganizer-mobile.css");
