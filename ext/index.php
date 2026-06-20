@@ -10,7 +10,7 @@ include_once 'lib/team.functions.php';
 include_once 'lib/country.functions.php';
 include_once 'lib/configuration.functions.php';
 
-$title = _("Ultiorganizer links");
+$title = _("External links");
 $html = "";
 
 $seltournament = "";
@@ -80,9 +80,9 @@ if (empty($season)) {
 $seasons = PublicExternalSeasons();
 $season = ExtValidSelectedValue($season, $seasons, 'season_id');
 
-$html .= "<h1>" . _("Embedding Ultiorganizer into other pages") . "</h1>";
+$html .= "<h1>" . _("Embedding ULTIRANKS into other pages") . "</h1>";
 
-$html .= "<p>" . _("You can embed the following statistics from Ultiorganizer directly into your own pages") . ".</p>\n";
+$html .= "<p>" . _("You can embed the following statistics from ULTIRANKS directly into your own pages") . ".</p>\n";
 $html .= "<form method='post' action='?view=ext/index'>\n";
 
 $html .= "<h2>" . _("Select") . "</h2>";

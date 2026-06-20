@@ -41,6 +41,10 @@ if (iget("spsort")) {
 } elseif (iget("sort")) {
     $spsort = iget("sort");
 }
+
+//BANNER
+$html .= "<img width='100%' src='images/uploads/banners/" . $seasoninfo['season_id'] . ".jpg' alt=''/>";
+
 $html .= "<h2>" . _("Spirit scores") . " " . utf8entities($seriesinfo['name']) . "</h2>";
 
 if (!ShowSpiritScoresForSeason($seasoninfo)) {
