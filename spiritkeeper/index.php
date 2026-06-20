@@ -100,7 +100,7 @@ echo "<div data-role='content'>\n";
 echo $pageHtml;
 echo "</div>\n";
 echo "<div data-role='footer' class='ui-bar' data-position='fixed'>\n";
-echo "<a class='footer-compact' href='" . BASEURL . "/' data-role='button' rel='external' data-icon='home'>" . _("ULTIRANKS") . "</a>";
+echo "<a class='footer-compact' href='" . BASEURL . "/' data-role='button' rel='external' data-icon='home'>" . _("Ultiorganizer") . "</a>";
 if ($showLogout) {
     echo "<a class='footer-compact' href='?view=logout' data-role='button'>" . _("Log out") . "</a>";
 }

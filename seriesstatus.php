@@ -111,8 +111,6 @@ foreach ($rankedteams as $rteam) {
 }
 unset($ateam);
 
-//BANNER
-$html .= "<img width='100%' src='images/uploads/banners/" . $seasoninfo['season_id'] . ".jpg' alt=''/>";
 
 $html .= CommentHTML(2, $seriesinfo['series_id']);
 

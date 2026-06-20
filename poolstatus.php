@@ -82,8 +82,6 @@ if (iget("print")) {
 
 $html .= $comment;
 
-$html .= "<img width='100%' src='images/uploads/banners/" . $seasoninfo['season_id'] . ".jpg' alt=''/ >";
-
 $prevseries = 0;
 if (!empty($pools) && is_array($pools)) {
     foreach ($pools as $pool) {
@@ -157,9 +155,8 @@ function scoreboard($id, $seriesScoreboard)
     if ($seriesScoreboard) {
         $ret .= "<h2>" . _("Scoreboard leaders") . "</h2>\n";
         $ret .= "<table cellspacing='0' border='0' width='100%'>\n";
-        $ret .= "<caption style='color:grey;font-size:.95em' align= 'bottom'>" . ("PG: Played Games | G: Goals | A: Assists"). "</caption>";
-        $ret .= "<tr><th style='width:130px'>" . _("Player") . "</th><th style='width:120px'>" . _("Team") . "</th><th class='center'>" . _("PG") . "</th>
-    <th class='center'>" . _("A") . "</th><th class='center'>" . _("G") . "</th><th class='center'>" . _("Total") . "</th></tr>\n";
+        $ret .= "<tr><th style='width:120px'>" . _("Player") . "</th><th style='width:120px'>" . _("Team") . "</th><th class='center'>" . _("Games") . "</th>
+    <th class='center'>" . _("Assists") . "</th><th class='center'>" . _("Goals") . "</th><th class='center'>" . _("Tot.") . "</th></tr>\n";
         /*
         <th class='center'>"._("Ast/Gm")."</th><th class='center'>"._("Gls/Gm")."</th><th class='center'>"._("Tot/Gm")."</th>
         */
@@ -184,9 +181,8 @@ function scoreboard($id, $seriesScoreboard)
     } else {
         $ret .= "<h2>" . _("Scoreboard leaders") . "</h2>\n";
         $ret .= "<table cellspacing='0' border='0' width='100%'>\n";
-        $ret .= "<caption style='color:grey;font-size:.95em' align= 'bottom'>" . ("PG: Played Games | G: Goals | A: Assists"). "</caption>";
-        $ret .= "<tr><th style='width:130px'>" . _("Player") . "</th><th style='width:120px'>" . _("Team") . "</th><th class='center'>" . _("PG") . "</th>
-    <th class='center'>" . _("A") . "</th><th class='center'>" . _("G") . "</th><th class='center'>" . _("Total") . "</th></tr>\n";
+        $ret .= "<tr><th style='width:120px'>" . _("Player") . "</th><th style='width:120px'>" . _("Team") . "</th><th class='center'>" . _("Games") . "</th>
+    <th class='center'>" . _("Assists") . "</th><th class='center'>" . _("Goals") . "</th><th class='center'>" . _("Tot.") . "</th></tr>\n";
         /*
         <th class='center'>"._("Ast/Gm")."</th><th class='center'>"._("Gls/Gm")."</th><th class='center'>"._("Tot/Gm")."</th>
         */
@@ -369,17 +365,16 @@ function printRoundRobinPool($seasoninfo, $poolinfo)
         $style = "style='font-weight: bold;'";
     }
     $ret .= "<table $style border='2' width='100%'>\n";
-    $ret .= "<caption style='color:grey;font-size:.95em' align= 'bottom'>" . ("PG: Played Games | W: Wins | L: Losses <br>GF: Goals For | GA: Goals Against | GD: Goal Diff"). "</caption>";
     $ret .= "<tr><th>#</th><th style='width:200px'>" . _("Team") . "</th>";
-    $ret .= "<th class='center'>" . _("PG") . "</th>";
-    $ret .= "<th class='center'>" . _("W") . "</th>";
+    $ret .= "<th class='center'>" . _("Games") . "</th>";
+    $ret .= "<th class='center'>" . _("Wins") . "</th>";
     if ($poolinfo['drawsallowed']) {
-        $ret .= "<th class='center'>" . _("D") . "</th>";
+        $ret .= "<th class='center'>" . _("Draws") . "</th>";
     }
-    $ret .= "<th class='center'>" . _("L") . "</th>";
-    $ret .= "<th class='center'>" . _("GF") . "</th>";
-    $ret .= "<th class='center'>" . _("GA") . "</th>";
-    $ret .= "<th class='center'>" . _("GD") . "</th>";
+    $ret .= "<th class='center'>" . _("Losses") . "</th>";
+    $ret .= "<th class='center'>" . _("Goals for") . "</th>";
+    $ret .= "<th class='center'>" . _("Goals against") . "</th>";
+    $ret .= "<th class='center'>" . _("Goals diff") . "</th>";
     $ret .= "</tr>\n";
 
     $standings = PoolTeams($poolinfo['pool_id'], "rank");
