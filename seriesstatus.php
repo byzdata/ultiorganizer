@@ -120,7 +120,7 @@ $html .= "<h2>" . _("Division statistics:") . " " . utf8entities($seriesinfo['na
 $style = "";
 
 $html .= "<table border='1' style='width:100%'>\n";
-$html .= "<caption style='color:grey;font-size:.95em' align= 'bottom'>" . ("PG: Played Games | W: Wins | L: Losses <br>GF: Goals For | GA: Goals Against | GD: Goal Diff | SOTG: Spirit"). "</caption>";
+$html .= "<caption style='color:grey;font-size:.95em' align= 'bottom'>" . _("PG: Played Games | W: Wins | L: Losses <br>GF: Goals For | GA: Goals Against | GD: Goal Diff | SOTG: Spirit"). "</caption>";
 $html .= "<tr>";
 
 if ($sort == "ranking") {

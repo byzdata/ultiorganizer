@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-20 15:38+0000\n"
+"POT-Creation-Date: 2026-06-20 16:12+0000\n"
 "PO-Revision-Date: \n"
 "Last-Translator: stm <stm2@sourceforge.net>\n"
 "Language-Team: Ultiorganizer\n"
@@ -4260,6 +4260,22 @@ msgstr "PDF"
 #: scorestatus.php:90 seriesstatus.php:169 seriesstatus.php:171
 #: seriesstatus.php:308
 msgid "PG"
+msgstr ""
+
+#: poolstatus.php:160 poolstatus.php:187
+msgid "PG: Played Games | G: Goals | A: Assists"
+msgstr ""
+
+#: poolstatus.php:372
+msgid ""
+"PG: Played Games | W: Wins | L: Losses <br>GF: Goals For | GA: Goals Against "
+"| GD: Goal Diff"
+msgstr ""
+
+#: seriesstatus.php:123
+msgid ""
+"PG: Played Games | W: Wins | L: Losses <br>GF: Goals For | GA: Goals Against "
+"| GD: Goal Diff | SOTG: Spirit"
 msgstr ""
 
 #: admin/eventviewer.php:126

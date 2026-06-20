@@ -157,7 +157,7 @@ function scoreboard($id, $seriesScoreboard)
     if ($seriesScoreboard) {
         $ret .= "<h2>" . _("Scoreboard leaders") . "</h2>\n";
         $ret .= "<table cellspacing='0' border='0' width='100%'>\n";
-        $ret .= "<caption style='color:grey;font-size:.95em' align= 'bottom'>" . ("PG: Played Games | G: Goals | A: Assists"). "</caption>";
+        $ret .= "<caption style='color:grey;font-size:.95em' align= 'bottom'>" . _("PG: Played Games | G: Goals | A: Assists"). "</caption>";
         $ret .= "<tr><th style='width:130px'>" . _("Player") . "</th><th style='width:120px'>" . _("Team") . "</th><th class='center'>" . _("PG") . "</th>
     <th class='center'>" . _("A") . "</th><th class='center'>" . _("G") . "</th><th class='center'>" . _("Total") . "</th></tr>\n";
         /*
@@ -184,7 +184,7 @@ function scoreboard($id, $seriesScoreboard)
     } else {
         $ret .= "<h2>" . _("Scoreboard leaders") . "</h2>\n";
         $ret .= "<table cellspacing='0' border='0' width='100%'>\n";
-        $ret .= "<caption style='color:grey;font-size:.95em' align= 'bottom'>" . ("PG: Played Games | G: Goals | A: Assists"). "</caption>";
+        $ret .= "<caption style='color:grey;font-size:.95em' align= 'bottom'>" . _("PG: Played Games | G: Goals | A: Assists"). "</caption>";
         $ret .= "<tr><th style='width:130px'>" . _("Player") . "</th><th style='width:120px'>" . _("Team") . "</th><th class='center'>" . _("PG") . "</th>
     <th class='center'>" . _("A") . "</th><th class='center'>" . _("G") . "</th><th class='center'>" . _("Total") . "</th></tr>\n";
         /*
@@ -369,7 +369,7 @@ function printRoundRobinPool($seasoninfo, $poolinfo)
         $style = "style='font-weight: bold;'";
     }
     $ret .= "<table $style border='2' width='100%'>\n";
-    $ret .= "<caption style='color:grey;font-size:.95em' align= 'bottom'>" . ("PG: Played Games | W: Wins | L: Losses <br>GF: Goals For | GA: Goals Against | GD: Goal Diff"). "</caption>";
+    $ret .= "<caption style='color:grey;font-size:.95em' align= 'bottom'>" . _("PG: Played Games | W: Wins | L: Losses <br>GF: Goals For | GA: Goals Against | GD: Goal Diff"). "</caption>";
     $ret .= "<tr><th>#</th><th style='width:200px'>" . _("Team") . "</th>";
     $ret .= "<th class='center'>" . _("PG") . "</th>";
     $ret .= "<th class='center'>" . _("W") . "</th>";
