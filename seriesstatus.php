@@ -111,6 +111,8 @@ foreach ($rankedteams as $rteam) {
 }
 unset($ateam);
 
+//BANNER
+$html .= "<img width='100%' src='images/uploads/banners/" . $seasoninfo['season_id'] . ".jpg' alt=''/>";
 
 $html .= CommentHTML(2, $seriesinfo['series_id']);
 
@@ -118,6 +120,7 @@ $html .= "<h2>" . _("Division statistics:") . " " . utf8entities($seriesinfo['na
 $style = "";
 
 $html .= "<table border='1' style='width:100%'>\n";
+$html .= "<caption style='color:grey;font-size:.95em' align= 'bottom'>" . ("PG: Played Games | W: Wins | L: Losses <br>GF: Goals For | GA: Goals Against | GD: Goal Diff | SOTG: Spirit"). "</caption>";
 $html .= "<tr>";
 
 if ($sort == "ranking") {
@@ -163,51 +166,51 @@ if ($sort == "ranking") {
 }
 
 if ($sort == "games") {
-    $html .= "<th class='center'>" . _("Games") . "</th>";
+    $html .= "<th class='center'>" . _("PG") . "</th>";
 } else {
-    $html .= "<th class='center'><a class='thsort' href='" . $viewUrl . "&amp;Sort=games'>" . _("Games") . "</a></th>";
+    $html .= "<th class='center'><a class='thsort' href='" . $viewUrl . "&amp;Sort=games'>" . _("PG") . "</a></th>";
 }
 
 if ($sort == "wins") {
-    $html .= "<th class='center'>" . _("Wins") . "</th>";
+    $html .= "<th class='center'>" . _("W") . "</th>";
 } else {
-    $html .= "<th class='center'><a class='thsort' href='" . $viewUrl . "&amp;Sort=wins'>" . _("Wins") . "</a></th>";
+    $html .= "<th class='center'><a class='thsort' href='" . $viewUrl . "&amp;Sort=wins'>" . _("W") . "</a></th>";
 }
 
 if ($sort == "losses") {
-    $html .= "<th class='center'>" . _("Losses") . "</th>";
+    $html .= "<th class='center'>" . _("L") . "</th>";
 } else {
-    $html .= "<th class='center'><a class='thsort' href='" . $viewUrl . "&amp;Sort=losses'>" . _("Losses") . "</a></th>";
+    $html .= "<th class='center'><a class='thsort' href='" . $viewUrl . "&amp;Sort=losses'>" . _("L") . "</a></th>";
 }
 
 if ($sort == "for") {
-    $html .= "<th class='center'>" . _("Goals for") . "</th>";
+    $html .= "<th class='center'>" . _("GF") . "</th>";
 } else {
-    $html .= "<th class='center'><a class='thsort' href='" . $viewUrl . "&amp;Sort=for'>" . _("Goals for") . "</a></th>";
+    $html .= "<th class='center'><a class='thsort' href='" . $viewUrl . "&amp;Sort=for'>" . _("GF") . "</a></th>";
 }
 
 if ($sort == "against") {
-    $html .= "<th class='center'>" . _("Goals against") . "</th>";
+    $html .= "<th class='center'>" . _("GA") . "</th>";
 } else {
-    $html .= "<th class='center'><a class='thsort' href='" . $viewUrl . "&amp;Sort=against'>" . _("Goals against") . "</a></th>";
+    $html .= "<th class='center'><a class='thsort' href='" . $viewUrl . "&amp;Sort=against'>" . _("GA") . "</a></th>";
 }
 
 if ($sort == "diff") {
-    $html .= "<th class='center'>" . _("Goals diff") . "</th>";
+    $html .= "<th class='center'>" . _("GD") . "</th>";
 } else {
-    $html .= "<th class='center'><a class='thsort' href='" . $viewUrl . "&amp;Sort=diff'>" . _("Goals diff") . "</a></th>";
+    $html .= "<th class='center'><a class='thsort' href='" . $viewUrl . "&amp;Sort=diff'>" . _("GD") . "</a></th>";
 }
 
 if ($sort == "winavg") {
-    $html .= "<th class='center'>" . _("Win-%") . "</th>";
+    $html .= "<th class='center'>" . _("W%") . "</th>";
 } else {
-    $html .= "<th class='center'><a class='thsort' href='" . $viewUrl . "&amp;Sort=winavg'>" . _("Win-%") . "</a></th>";
+    $html .= "<th class='center'><a class='thsort' href='" . $viewUrl . "&amp;Sort=winavg'>" . _("W%") . "</a></th>";
 }
 if (ShowSpiritScoresForSeason($seasoninfo)) {
     if ($sort == "spirit") {
-        $html .= "<th class='center'>" . _("Spirit score") . "</th>";
+        $html .= "<th class='center'>" . _("SOTG") . "</th>";
     } else {
-        $html .= "<th class='center'><a class='thsort' href='" . $viewUrl . "&amp;Sort=spirit'>" . _("Spirit score") . "</a></th>";
+        $html .= "<th class='center'><a class='thsort' href='" . $viewUrl . "&amp;Sort=spirit'>" . _("SOTG") . "</a></th>";
     }
 }
 
@@ -302,8 +305,8 @@ $html .= "</table>\n";
 $html .= "<a href='?view=poolstatus&amp;series=" . $seriesinfo['series_id'] . "'>" . _("Show all pools") . "</a>";
 $html .= "<h2>" . _("Scoreboard leaders") . "</h2>\n";
 $html .= "<table cellspacing='0' border='0' width='100%'>\n";
-$html .= "<tr><th style='width:200px'>" . _("Player") . "</th><th style='width:200px'>" . _("Team") . "</th><th class='center'>" . _("Games") . "</th>
-<th class='center'>" . _("Assists") . "</th><th class='center'>" . _("Goals") . "</th><th class='center'>" . _("Tot.") . "</th></tr>\n";
+$html .= "<tr><th style='width:200px'>" . _("Player") . "</th><th style='width:200px'>" . _("Team") . "</th><th class='center'>" . _("PG") . "</th>
+<th class='center'>" . _("A") . "</th><th class='center'>" . _("G") . "</th><th class='center'>" . _("Total") . "</th></tr>\n";
 
 $scores = SeriesScoreBoardArray($seriesinfo['series_id'], "total", 10);
 foreach ($scores as $row) {

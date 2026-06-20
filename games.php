@@ -82,11 +82,14 @@ if (iget("series")) {
     $baseurl .= "&series=$id";
     $gamefilter = "series";
     $title = _("Schedule") . " " . utf8entities(U_(SeriesName($id)));
+    $seasonid = SeriesSeasonId($id);
 } elseif (iget("pool")) {
     $id = iget("pool");
     $baseurl .= "&pool=$id";
     $gamefilter = "pool";
     $title = _("Schedule") . " " . utf8entities(U_(PoolSeriesName($id)) . ", " . U_(PoolName($id)));
+    $poolinfo = PoolInfo($id);
+    $seasonid = $poolinfo['season'];
 } elseif (iget("pools")) {
     $poolIds = array_filter(array_map('intval', explode(',', iget("pools"))), function ($val) {
         return $val > 0;
@@ -96,12 +99,15 @@ if (iget("series")) {
         $baseurl .= "&pools=$id";
         $gamefilter = "poolgroup";
         $title = pool_group_schedule_title($poolIds);
+        $poolinfo = PoolInfo(reset($poolIds));
+    	$seasonid = $poolinfo['season'];
     } else {
         // Fall back to season view if pool ids are invalid/empty
         $id = CurrentSeason();
         $baseurl .= "&season=$id";
         $gamefilter = "season";
         $title = _("Schedule") . " " . utf8entities(U_(SeasonName($id)));
+        $seasonid = $id;
     }
 } elseif (iget("team")) {
     $id = iget("team");
@@ -109,17 +115,20 @@ if (iget("series")) {
     $gamefilter = "team";
     $filter = 'places';
     $title = _("Schedule") . " " . utf8entities(TeamName($id));
+    $seasonid = TeamSeason($id);
 } elseif (iget("season")) {
     $id = iget("season");
     $baseurl .= "&season=$id";
     $gamefilter = "season";
     $title = _("Schedule") . " " . utf8entities(U_(SeasonName($id)));
     $comment = CommentHTML(1, $id);
+    $seasonid = $id;
 } else {
     $id = CurrentSeason();
     $baseurl .= "&season=$id";
     $gamefilter = "season";
     $title = _("Schedule") . " " . utf8entities(U_(SeasonName($id)));
+    $seasonid = $id;
 }
 
 $filter  = iget("filter");
@@ -204,6 +213,9 @@ switch ($filter) {
         $order = "tournaments";
         break;
 }
+
+//BANNER
+$html .= "<img width='100%' src='images/uploads/banners/" . $seasonid . ".jpg' alt=''/>";
 
 $games = TimetableGames($id, $gamefilter, $timefilter, $order, $group, true);
 $groups = TimetableGrouping($id, $gamefilter, $timefilter, true);

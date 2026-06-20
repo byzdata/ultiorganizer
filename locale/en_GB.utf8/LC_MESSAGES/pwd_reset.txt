@@ -1,4 +1,4 @@
-A password reset was requested for your account on Ultiorganizer.
+A password reset was requested for your account on ULTIRANKS.
 
 Username: $username
 
