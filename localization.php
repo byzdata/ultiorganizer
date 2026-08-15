@@ -28,15 +28,26 @@ function setSessionLocale()
     global $include_prefix;
     global $locales;
 
+    $availableLocales = is_array($locales) ? $locales : [];
+    $fallbackLocale = GetDefaultLocale();
+    if (!isset($availableLocales[$fallbackLocale])) {
+        $fallbackLocale = array_key_first($availableLocales) ?? 'en_GB.utf8';
+    }
+
     if (isset($_SESSION['userproperties']['locale'])) {
-        $tmparr = array_keys($_SESSION['userproperties']['locale']);
-        $oldlocale = $tmparr[0];
+        if (is_array($_SESSION['userproperties']['locale'])) {
+            $tmparr = array_keys($_SESSION['userproperties']['locale']);
+            $oldlocale = $tmparr[0] ?? 'not_set';
+        } else {
+            $oldlocale = $_SESSION['userproperties']['locale'];
+        }
     } else {
         $oldlocale = "not_set";
     }
 
-    if (iget("locale")) {
-        $_SESSION['userproperties']['locale'] = [$_GET['locale'] => 0];
+    $requestedLocale = iget("locale");
+    if ($requestedLocale !== '' && isset($availableLocales[$requestedLocale])) {
+        $_SESSION['userproperties']['locale'] = [$requestedLocale => 0];
     }
 
     if (!isset($_SESSION['userproperties']['locale'])) {
@@ -45,9 +56,13 @@ function setSessionLocale()
 
     if (is_array($_SESSION['userproperties']['locale'])) {
         $tmparr = array_keys($_SESSION['userproperties']['locale']);
-        $locale = $tmparr[0];
+        $locale = $tmparr[0] ?? $fallbackLocale;
     } else {
         $locale = $_SESSION['userproperties']['locale'];
+    }
+    if (!isset($availableLocales[$locale])) {
+        $locale = $fallbackLocale;
+        $_SESSION['userproperties']['locale'] = [$locale => 0];
     }
     $encoding = 'UTF-8';
 
@@ -83,10 +98,12 @@ function styles()
         //		$styles_prefix = "../";
     }
     $ret = "";
-    if (is_file($include_prefix . 'cust/' . CUSTOMIZATIONS . '/ultiorganizer.css')) {
+    // Load the default skin as the base, then layer the active customization on
+    // top so a customization only needs to carry the rules it overrides.
+    $ret .= "		<link rel=\"stylesheet\" href=\"" . $styles_prefix . "cust/default/ultiorganizer.css\" type=\"text/css\" />\n";
+    if (CUSTOMIZATIONS !== 'default'
+        && is_file($include_prefix . 'cust/' . CUSTOMIZATIONS . '/ultiorganizer.css')) {
         $ret .= "		<link rel=\"stylesheet\" href=\"" . $styles_prefix . "cust/" . CUSTOMIZATIONS . "/ultiorganizer.css\" type=\"text/css\" />\n";
-    } else {
-        $ret .= "		<link rel=\"stylesheet\" href=\"" . $styles_prefix . "cust/default/ultiorganizer.css\" type=\"text/css\" />\n";
     }
     return $ret;
 }
@@ -99,10 +116,11 @@ function mobileStyles()
         $styles_prefix = $include_prefix;
     }
     $ret = "";
-    if (is_file($include_prefix . 'cust/' . CUSTOMIZATIONS . '/ultiorganizer-mobile.css')) {
+    // Same base + override cascade as styles().
+    $ret .= "    <link rel=\"stylesheet\" href=\"" . $styles_prefix . "cust/default/ultiorganizer-mobile.css\" type=\"text/css\" />\n";
+    if (CUSTOMIZATIONS !== 'default'
+        && is_file($include_prefix . 'cust/' . CUSTOMIZATIONS . '/ultiorganizer-mobile.css')) {
         $ret .= "    <link rel=\"stylesheet\" href=\"" . $styles_prefix . "cust/" . CUSTOMIZATIONS . "/ultiorganizer-mobile.css\" type=\"text/css\" />\n";
-    } else {
-        $ret .= "    <link rel=\"stylesheet\" href=\"" . $styles_prefix . "cust/default/ultiorganizer-mobile.css\" type=\"text/css\" />\n";
     }
     return $ret;
 }

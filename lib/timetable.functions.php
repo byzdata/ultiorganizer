@@ -6,6 +6,7 @@ denyDirectLibAccess(__FILE__);
 require_once __DIR__ . '/configuration.functions.php';
 require_once __DIR__ . '/game.functions.php';
 require_once __DIR__ . '/reservation.functions.php';
+require_once __DIR__ . '/spirit.functions.php';
 
 function CollectGameIdsFromResult($games)
 {
@@ -58,6 +59,7 @@ function TournamentView($games, $grouping = true)
     $isTableOpen = false;
     $rss = IsGameRSSEnabled();
     $mediaUrlsByGame = GetMediaUrlListForGames(CollectGameIdsFromResult($games), "live");
+    $spiritTotals = ScheduleSpiritTotals($games);
 
     foreach ($games as $game) {
         $placeLabel = ReservationPlaceText(U_($game['placename']), U_($game['fieldname']));
@@ -109,7 +111,7 @@ function TournamentView($games, $grouping = true)
 
         if ($isTableOpen) {
             //function GameRow($game, $date=false, $time=true, $field=true, $series=false,$pool=false,$info=true)
-            $ret .= GameRow($game, false, true, true, false, false, true, $rss, true, $mediaUrlsByGame);
+            $ret .= GameRow($game, false, true, true, false, false, true, $rss, true, $mediaUrlsByGame, $spiritTotals);
         }
 
         $prevTournament = $game['reservationgroup'];
@@ -127,7 +129,7 @@ function TournamentView($games, $grouping = true)
     return $ret;
 }
 
-function SeriesView($games, $date = true, $time = false)
+function SeriesView($games, $date = true, $time = true)
 {
     $ret = "";
     $prevTournament = "";
@@ -140,6 +142,7 @@ function SeriesView($games, $date = true, $time = false)
     $isTableOpen = false;
     $rss = IsGameRSSEnabled();
     $mediaUrlsByGame = GetMediaUrlListForGames(CollectGameIdsFromResult($games), "live");
+    $spiritTotals = ScheduleSpiritTotals($games);
 
     foreach ($games as $game) {
         if (
@@ -165,7 +168,7 @@ function SeriesView($games, $date = true, $time = false)
         }
 
         //function GameRow($game, $date=false, $time=true, $field=true, $series=false,$pool=false,$info=true)
-        $ret .= GameRow($game, true, true, true, false, false, true, $rss, true, $mediaUrlsByGame);
+        $ret .= GameRow($game, $date, $time, true, false, false, true, $rss, true, $mediaUrlsByGame, $spiritTotals);
 
         $prevTournament = $game['reservationgroup'];
         $prevPlace = $game['place_id'];
@@ -196,6 +199,7 @@ function PlaceView($games, $grouping = true)
     $isTableOpen = false;
     $rss = IsGameRSSEnabled();
     $mediaUrlsByGame = GetMediaUrlListForGames(CollectGameIdsFromResult($games), "live");
+    $spiritTotals = ScheduleSpiritTotals($games);
 
     foreach ($games as $game) {
         if (
@@ -235,7 +239,7 @@ function PlaceView($games, $grouping = true)
 
         if ($isTableOpen) {
             //function GameRow($game, $date=false, $time=true, $field=true, $series=false,$pool=false,$info=true)
-            $ret .= GameRow($game, false, true, false, true, true, true, $rss, true, $mediaUrlsByGame);
+            $ret .= GameRow($game, false, true, false, true, true, true, $rss, true, $mediaUrlsByGame, $spiritTotals);
         }
 
         $prevTournament = $game['reservationgroup'];
@@ -263,6 +267,7 @@ function TimeView($games, $grouping = true)
     $isTableOpen = false;
     $rss = IsGameRSSEnabled();
     $mediaUrlsByGame = GetMediaUrlListForGames(CollectGameIdsFromResult($games), "live");
+    $spiritTotals = ScheduleSpiritTotals($games);
 
     foreach ($games as $game) {
         if ($game['time'] != $prevTime) {
@@ -278,7 +283,7 @@ function TimeView($games, $grouping = true)
 
         if ($isTableOpen) {
             //function GameRow($game, $date=false, $time=true, $field=true, $series=false,$pool=false,$info=true)
-            $ret .= GameRow($game, false, false, true, true, true, true, $rss, true, $mediaUrlsByGame);
+            $ret .= GameRow($game, false, false, true, true, true, true, $rss, true, $mediaUrlsByGame, $spiritTotals);
         }
 
         $prevTime = $game['time'];
@@ -493,7 +498,54 @@ function SeriesAndPoolHeaders($info)
     return $ret;
 }
 
-function GameRow($game, $date = false, $time = true, $field = true, $series = false, $pool = false, $info = true, $rss = false, $media = true, $mediaUrlsByGame = null)
+/**
+ * Spirit totals for every game in a schedule result, but only for viewers who
+ * administer spirit for the season those games belong to. Returns an empty
+ * array for everyone else, which keeps the spirit column out of public views.
+ *
+ * @param array $games
+ * @return array
+ */
+function ScheduleSpiritTotals($games)
+{
+    if (!$games) {
+        return [];
+    }
+
+    $gameIds = [];
+    foreach ($games as $game) {
+        if (empty($game['game_id']) || empty($game['season'])) {
+            continue;
+        }
+        if (!empty($game['spiritmode']) && hasSpiritToolsRight($game['season'])) {
+            $gameIds[] = (int) $game['game_id'];
+        }
+    }
+
+    return GameSpiritTotalsForGames($gameIds);
+}
+
+/**
+ * Spirit score pair for the schedule, e.g. `[13 - 11]`. A team that has not
+ * been scored yet is marked as missing rather than left blank, so a spirit
+ * admin can spot the gaps while scanning the schedule.
+ */
+function GameSpiritView($gameId, $spiritTotals)
+{
+    $gameId = (string) $gameId;
+    if (!isset($spiritTotals[$gameId])) {
+        return "";
+    }
+
+    $missing = "<abbr class='spirit-missing' title='" . _("Missing spirit score") . "'>M</abbr>";
+    $totals = $spiritTotals[$gameId];
+    $home = is_null($totals['home']) ? $missing : (string) (float) $totals['home'];
+    $visitor = is_null($totals['visitor']) ? $missing : (string) (float) $totals['visitor'];
+
+    return "<span class='game-spirit'>[" . $home . " - " . $visitor . "]</span>";
+}
+
+function GameRow($game, $date = false, $time = true, $field = true, $series = false, $pool = false, $info = true, $rss = false, $media = true, $mediaUrlsByGame = null, $spiritTotals = null)
 {
     $datew = 'width:60px';
     $timew = 'width:40px';
@@ -519,14 +571,33 @@ function GameRow($game, $date = false, $time = true, $field = true, $series = fa
 
     if ($field) {
         if (!empty($game['fieldname'])) {
-            $ret .= "<td style='$fieldw'><span>" . _("Field") . " " . utf8entities($game['fieldname']) . "</span></td>\n";
+            $ret .= "<td style='$fieldw'><span>" . _("Field") . " " . utf8entities(U_($game['fieldname'])) . "</span></td>\n";
         } else {
             $ret .= "<td style='$fieldw'></td>\n";
         }
     }
 
+    $isinternational = isset($game['isinternational']) && intval($game['isinternational']);
+
+    $homeresult = "";
+    $visitorresult = "";
+    if (GameHasStarted($game) && !$game['isongoing']) {
+        if (intval($game['homescore']) > intval($game['visitorscore'])) {
+            $homeresult = "game-winner";
+            $visitorresult = "game-loser";
+        } elseif (intval($game['visitorscore']) > intval($game['homescore'])) {
+            $homeresult = "game-loser";
+            $visitorresult = "game-winner";
+        }
+    }
+
     if ($game['hometeam']) {
-        $ret .= "<td style='$teamw'><span>" . utf8entities($game['hometeamname']) . "</span></td>\n";
+        $homeflag = "";
+        if ($isinternational && !empty($game['homeflag'])) {
+            $homeflag = "<img height='10' src='images/flags/tiny/" . utf8entities($game['homeflag']) . "' alt=''/> ";
+        }
+        $homeclass = $homeresult !== "" ? " class='$homeresult'" : "";
+        $ret .= "<td style='$teamw'><span$homeclass>" . $homeflag . utf8entities($game['hometeamname']) . "</span></td>\n";
     } else {
         $ret .= "<td style='$teamw'><span class='schedulingname'>" . utf8entities(U_($game['phometeamname'])) . "</span></td>\n";
     }
@@ -534,7 +605,12 @@ function GameRow($game, $date = false, $time = true, $field = true, $series = fa
     $ret .= "<td style='$againstmarkw'>-</td>\n";
 
     if ($game['visitorteam']) {
-        $ret .= "<td style='$teamw'><span>" . utf8entities($game['visitorteamname']) . "</span></td>\n";
+        $visitorflag = "";
+        if ($isinternational && !empty($game['visitorflag'])) {
+            $visitorflag = "<img height='10' src='images/flags/tiny/" . utf8entities($game['visitorflag']) . "' alt=''/> ";
+        }
+        $visitorclass = $visitorresult !== "" ? " class='$visitorresult'" : "";
+        $ret .= "<td style='$teamw'><span$visitorclass>" . $visitorflag . utf8entities($game['visitorteamname']) . "</span></td>\n";
     } else {
         $ret .= "<td style='$teamw'><span class='schedulingname'>" . utf8entities(U_($game['pvisitorteamname'])) . "</span></td>\n";
     }
@@ -565,7 +641,11 @@ function GameRow($game, $date = false, $time = true, $field = true, $series = fa
             if (!empty($game['forfeit'])) {
                 $ret .= "<td><span class='forfeit-mark'>(" . _("forfeit") . ")</span></td>\n";
             } else {
-                $ret .= "<td></td>\n";
+                // Forfeited games carry no spirit scores, so the cell is free
+                // to show them for spirit admins. Callers prefetch the totals
+                // for the whole listing; without them the cell stays empty
+                // rather than falling back to a query per row.
+                $ret .= "<td>" . GameSpiritView($game['game_id'], is_array($spiritTotals) ? $spiritTotals : []) . "</td>\n";
             }
         }
     }
@@ -679,6 +759,40 @@ function PrevGameDay($id, $gamefilter, $order)
 }
 
 
+/**
+ * WHERE fragment gating public game rows on their pool's playoff-root visibility.
+ *
+ * The recursive CTE maps every pool to its playoff root's visibility. It stays
+ * inside the predicate so the top-level timetable query remains a SELECT and is
+ * eligible for the persistent query cache.
+ *
+ * UNION de-duplicates rows across recursive iterations, preventing a corrupted
+ * follower cycle from continuing until MariaDB's recursion limit.
+ *
+ * MAX() collapses duplicate root-visibility rows if a pool is ever reached from
+ * more than one root (e.g. a corrupted/imported follower graph).
+ *
+ * Assumes the game's owning pool id is available as gp.pool.
+ */
+function TimetablePublicVisibilityCondition()
+{
+    return " AND ps.valid=1 AND gp.pool IN (
+			WITH RECURSIVE pool_root_visibility AS (
+				SELECT pool_id, follower, visible AS root_visible
+				FROM uo_pool
+				WHERE NOT EXISTS (SELECT 1 FROM uo_pool anc WHERE anc.follower = uo_pool.pool_id)
+				UNION
+				SELECT child.pool_id, child.follower, parent.root_visible
+				FROM uo_pool child
+				INNER JOIN pool_root_visibility parent ON parent.follower = child.pool_id
+			)
+			SELECT rv.pool_id
+			FROM pool_root_visibility rv
+			GROUP BY rv.pool_id
+			HAVING MAX(rv.root_visible) = 1
+		)";
+}
+
 function TimetableGames($id, $gamefilter, $timefilter, $order, $groupfilter = "", $onlypublic = false)
 {
     $fieldOrder = "CAST(pr.fieldname AS UNSIGNED) ASC, pr.fieldname ASC";
@@ -693,7 +807,7 @@ function TimetableGames($id, $gamefilter, $timefilter, $order, $groupfilter = ""
 			phome.name AS phometeamname, pvisitor.name AS pvisitorteamname, pool.color, pgame.name AS gamename,
 			home.abbreviation AS homeshortname, visitor.abbreviation AS visitorshortname, homec.country_id AS homecountryid,
 			homec.name AS homecountry, visitorc.country_id AS visitorcountryid, visitorc.name AS visitorcountry,
-			homec.flagfile AS homeflag, visitorc.flagfile AS visitorflag, s.timezone
+			homec.flagfile AS homeflag, visitorc.flagfile AS visitorflag, s.timezone, s.isinternational, s.spiritmode
 			FROM uo_game pp
 			INNER JOIN uo_game_pool gp ON (gp.game=pp.game_id AND gp.timetable=1)
 			LEFT JOIN (SELECT COUNT(*) AS goals, game FROM uo_goal GROUP BY game) AS pm ON (pp.game_id=pm.game)
@@ -738,7 +852,7 @@ function TimetableGames($id, $gamefilter, $timefilter, $order, $groupfilter = ""
     }
 
     if ($onlypublic) {
-        $query .= " AND pool.visible=1 AND ps.valid=1";
+        $query .= TimetablePublicVisibilityCondition();
     }
 
     switch ($timefilter) {
@@ -875,7 +989,7 @@ function TimetableGrouping($id, $gamefilter, $timefilter, $onlypublic = false)
     }
 
     if ($onlypublic) {
-        $query .= " AND pool.visible=1 AND ps.valid=1";
+        $query .= TimetablePublicVisibilityCondition();
     }
 
     switch ($timefilter) {
@@ -995,18 +1109,41 @@ function TimetableInterPoolConflicts($season)
       res1.location location1, res1.fieldname as field1, res2.location as location2, res2.fieldname as field2
       FROM uo_moveteams as mv
       LEFT JOIN uo_game_pool as gp1 ON (gp1.pool = mv.frompool AND gp1.timetable = 1)
-      LEFT JOIN uo_game as g1 ON (g1.game_id = gp1.game)
-      LEFT JOIN uo_game_pool as gp2 ON (gp2.pool = mv.topool AND gp2.timetable = 1 AND gp1.game != gp2.game)
-      LEFT JOIN uo_game as g2 ON (g2.game_id = gp2.game)
       LEFT JOIN uo_pool as p1 ON (p1.pool_id = gp1.pool)
+      LEFT JOIN uo_game as g1 ON (g1.game_id = gp1.game
+        AND (
+          p1.type NOT IN (2, 4)
+          OR EXISTS (
+            SELECT 1
+            FROM uo_moveteams source_move
+            WHERE source_move.topool = mv.frompool
+              AND source_move.torank = mv.fromplacing
+              AND source_move.scheduling_id IN (g1.scheduling_name_home, g1.scheduling_name_visitor)
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM uo_team_pool source_team
+            WHERE source_team.pool = mv.frompool
+              AND source_team.rank = mv.fromplacing
+              AND source_team.team IN (g1.hometeam, g1.visitorteam)
+          )
+        ))
+      LEFT JOIN uo_game_pool as gp2 ON (gp2.pool = mv.topool AND gp2.timetable = 1 AND gp1.game != gp2.game)
+      LEFT JOIN uo_game as g2 ON (g2.game_id = gp2.game
+        AND (
+          (mv.scheduling_id IS NOT NULL AND mv.scheduling_id IN (g2.scheduling_name_home, g2.scheduling_name_visitor))
+          OR g1.hometeam = g2.hometeam
+          OR g1.visitorteam = g2.visitorteam
+          OR g1.hometeam = g2.visitorteam
+          OR g1.visitorteam = g2.hometeam
+        ))
       LEFT JOIN uo_pool as p2 ON (p2.pool_id = gp2.pool)
       LEFT JOIN uo_reservation as res1 ON (res1.id = g1.reservation)
       LEFT JOIN uo_reservation as res2 ON (res2.id = g2.reservation)
       LEFT JOIN uo_series as ser1 ON (ser1.series_id = p1.series)
       LEFT JOIN uo_series as ser2 ON (ser2.series_id = p2.series)
       WHERE ser1.season = '" . $season . "' AND ser2.season = '" . $season . "'
-        AND (g1.hometeam IS NULL OR g1.visitorteam IS NULL OR g2.hometeam IS NULL OR g2.visitorteam IS NULL OR
-          (g1.hometeam=g2.hometeam OR g1.visitorteam = g2.visitorteam OR g1.hometeam=g2.visitorteam OR g1.visitorteam = g2.hometeam))
+        AND g1.game_id IS NOT NULL AND g2.game_id IS NOT NULL
       ORDER BY time2 ASC, time1 ASC";
     return DBQueryToArray($query);
 }

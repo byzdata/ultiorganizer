@@ -544,10 +544,10 @@ echo "<tr><td>" . utf8entities($game_result['hometeamname']) . " (" . $homeshort
 echo "<tr><th>" . _("Away team") . "</th></tr>";
 echo "<tr><td>" . utf8entities($game_result['visitorteamname']) . " (" . $visitorshortname . ")</td></tr>";
 echo "<tr><th>" . _("Field") . "</th></tr>";
-echo "<tr><td>" . utf8entities(ReservationPlaceText($place['name'], $place['fieldname'])) . "</td></tr>";
+echo "<tr><td>" . ($place !== null ? utf8entities(ReservationPlaceText($place['name'], $place['fieldname'])) : "") . "</td></tr>";
 echo "<tr><th>" . _("Scheduled start date and time") . "</th></tr>";
 echo "<tr><td>" . ShortDate($game_result['time']) . " " . DefHourFormat($game_result['time']) . "</td></tr>";
-echo "<tr><th>" . _("Game official(s)") . "</th></tr>";
+echo "<tr><th>" . _("Scorekeeper(s)") . "</th></tr>";
 echo "<tr><td><input class='input' style='width: 97%' type='text' name='secretary' id='secretary' value='" . utf8entities($game_result['official']) . "'/></td></tr>";
 echo "</table>\n";
 

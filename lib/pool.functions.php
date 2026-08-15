@@ -1286,13 +1286,15 @@ function PoolMovedGames($poolId)
             pl.name AS placename, pl.address, pp.isongoing, pp.hasstarted, home.name AS hometeamname, visitor.name AS visitorteamname,
             phome.name AS phometeamname, pvisitor.name AS pvisitorteamname, pool.color, pgame.name AS gamename,
             home.abbreviation AS homeshortname, visitor.abbreviation AS visitorshortname, homec.country_id AS homecountryid,
-            homec.name AS homecountry, visitorc.country_id AS visitorcountryid, visitorc.name AS visitorcountry
+            homec.name AS homecountry, visitorc.country_id AS visitorcountryid, visitorc.name AS visitorcountry,
+            homec.flagfile AS homeflag, visitorc.flagfile AS visitorflag, s.isinternational, s.spiritmode
             FROM uo_game_pool gp
             LEFT JOIN uo_game pp ON (gp.game=pp.game_id)
             LEFT JOIN uo_game_pool gpo ON (gpo.game=pp.game_id AND gpo.timetable=1)
             LEFT JOIN (SELECT COUNT(*) AS goals, game FROM uo_goal GROUP BY game) AS pm ON (pp.game_id=pm.game)
             LEFT JOIN uo_pool pool ON (pool.pool_id=gpo.pool)
             LEFT JOIN uo_series ps ON (pool.series=ps.series_id)
+            LEFT JOIN uo_season s ON (s.season_id=ps.season)
             LEFT JOIN uo_reservation pr ON (pp.reservation=pr.id)
             LEFT JOIN uo_location pl ON (pr.location=pl.id)
             LEFT JOIN uo_team AS home ON (pp.hometeam=home.team_id)
@@ -1720,9 +1722,13 @@ function SetPoolVisibility($poolId, $visible)
  * Cascade a playoff root pool's visibility to all of its followers.
  *
  * Follower pools (Quarterfinals, Semifinals, Finals, ...) are hidden from the
- * public pool menus but their games must follow the root pool's visibility so
- * they appear in the public GAMES/ical schedules. Existing follower trees are
- * not updated when the root visibility is toggled, so cascade it explicitly.
+ * public pool menus, so this cascade keeps each follower's own visible flag in
+ * sync with the root purely as a denormalized-consistency measure for any code
+ * that reads a follower's visible column directly. The public GAMES/ical
+ * schedule no longer depends on it: TimetableGames() and TimetableGrouping()
+ * derive follower visibility from the playoff root at read time (see
+ * TimetablePublicVisibilityCondition()), which is authoritative even when a
+ * follower tree's own visible flags are stale.
  *
  * @param int $poolId root pool id
  * @param bool|int $visible 0/false hidden, 1/true visible

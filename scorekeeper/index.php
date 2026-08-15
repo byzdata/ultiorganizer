@@ -1,10 +1,16 @@
 <?php
 
 $include_prefix = "../";
+$styles_prefix = "../";
 
 //Open database connection
 include_once '../lib/database.php';
 OpenConnection();
+
+// Live scorekeeping must always read fresh state; opt this app out of the
+// cross-request query cache so the post-redirect GET after logging a goal
+// never returns a pre-write snapshot (which would prompt a duplicate entry).
+DisablePersistentCacheForRequest();
 
 include_once $include_prefix . 'lib/common.functions.php';
 include_once $include_prefix . 'lib/user.functions.php';
@@ -72,7 +78,13 @@ echo "<meta name='viewport' content='width=device-width, initial-scale=1, viewpo
 echo "<title>Scorekeeper</title>\n";
 echo mobileStyles();
 
-echo "<script src='" . BASEURL . "/script/ultiorganizer.js'></script>\n";
+// Relative, like the stylesheets above and like timekeeper/index.php. An
+// absolute BASEURL only resolves for clients that reach the installation by
+// exactly that host and scheme, so a phone on the venue network would silently
+// load no script at all and the game clock would stop updating between page
+// loads.
+echo "<script src='" . $styles_prefix . "script/ultiorganizer.js'></script>\n";
+echo "<script src='" . $styles_prefix . "script/scorekeeper.js'></script>\n";
 
 echo "</head>\n";
 echo "<body>\n";
@@ -80,7 +92,7 @@ echo "<div data-role='page'>\n";
 include $viewPath;
 
 echo "<div data-role='footer' class='ui-bar' data-position='fixed'>\n";
-echo "<a class='footer-compact' href='" . BASEURL . "/' data-role='button' rel='external' data-icon='home'>" . _("ULTIRANKS") . "</a>";
+echo "<a class='footer-compact' href='" . BASEURL . "/' data-role='button' rel='external' data-icon='home'>" . _("Ultiorganizer") . "</a>";
 if ($_SESSION['uid'] != "anonymous") {
     echo "<a class='footer-compact' href='?view=logout' data-role='button' data-icon='delete'>" . _("Log out") . "</a>";
 }

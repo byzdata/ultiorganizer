@@ -1,0 +1,5 @@
+Tämä viesti lähetettiin vastauksena pyyntöön lisätä vahvistettu sähköpostiosoite palveluun $ultiorganizer.
+
+Seuraa alla olevaa linkkiä tai kopioi se selaimesi osoiteriville vahvistaaksesi tämän osoitteen.
+
+$url

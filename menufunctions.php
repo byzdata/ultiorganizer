@@ -692,7 +692,7 @@ function leftMenu($id = 0, $pagestart = true, $printable = false)
     echo "<table class='leftmenulinks'>\n";
     echo "<tr><td class='menuseasonlevel'>" . utf8entities(_("Client access")) . "</td></tr>\n";
     echo "<tr><td>";
-    echo "<a class='subnav' href='?view=ext/index'>&raquo; " . utf8entities(_("Embedded links")) . "</a>\n";
+    echo "<a class='subnav' href='?view=ext/index'>&raquo; " . utf8entities(_("Ultiorganizer links")) . "</a>\n";
     echo "<a class='subnav' href='?view=ext/export'>&raquo; " . utf8entities(_("Data export")) . "</a>\n";
     echo "<a class='subnav' href='./scorekeeper/'>&raquo; Scorekeeper</a>\n";
     $spiritkeeperUrl = './spiritkeeper/';

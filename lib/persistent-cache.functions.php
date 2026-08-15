@@ -6,6 +6,30 @@ denyDirectLibAccess(__FILE__);
 require_once __DIR__ . '/cache.functions.php';
 
 /**
+ * Disable the persistent (cross-request) cache for the remainder of this request.
+ *
+ * Intended for live-entry apps (scorekeeper, spiritkeeper) where any staleness is
+ * unacceptable and read volume is negligible. Call it once at request startup,
+ * before the first cacheable read. Honored by DBQueryCacheable() in database.php.
+ *
+ * @return void
+ */
+function DisablePersistentCacheForRequest()
+{
+    $GLOBALS['uo_persistent_cache_bypass'] = true;
+}
+
+/**
+ * Whether the persistent cache has been bypassed for this request.
+ *
+ * @return bool
+ */
+function IsPersistentCacheBypassed()
+{
+    return !empty($GLOBALS['uo_persistent_cache_bypass']);
+}
+
+/**
  * Return a cross-request cached value, recomputing when missing or expired.
  *
  * Writes are atomic (temp-file + rename). A non-blocking exclusive lock prevents
@@ -24,9 +48,11 @@ require_once __DIR__ . '/cache.functions.php';
  * @param mixed    $key        Namespace-specific cache key (scalar or array)
  * @param int      $ttlSeconds Seconds until expiry; 0 = use PersistentCacheTtlSeconds setting
  * @param callable $resolver   Computes and returns the fresh value on cache miss
+ * @param callable|null $shouldStore Optional admission callback; receives the resolved value and returns whether
+ *                                   it should be persisted
  * @return mixed
  */
-function CacheRememberFor($namespace, $key, $ttlSeconds, $resolver)
+function CacheRememberFor($namespace, $key, $ttlSeconds, $resolver, $shouldStore = null)
 {
     if (!IsPersistentCacheEnabled()) {
         return $resolver();
@@ -62,7 +88,14 @@ function CacheRememberFor($namespace, $key, $ttlSeconds, $resolver)
         }
 
         $value = $resolver();
-        PersistentCacheWrite($filePath, $value, $ttl);
+        if ($shouldStore === null || $shouldStore($value)) {
+            PersistentCacheWrite($filePath, $value, $ttl);
+        } else {
+            // A previously populated query can become empty. Remove its expired
+            // entry and the per-key lock so empty misses leave no files behind.
+            @unlink($filePath);
+            @unlink($lockFile);
+        }
         flock($lock, LOCK_UN);
         fclose($lock);
         return $value;

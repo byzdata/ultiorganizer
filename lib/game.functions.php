@@ -5,6 +5,7 @@ denyDirectLibAccess(__FILE__);
 
 require_once __DIR__ . '/accreditation.functions.php';
 require_once __DIR__ . '/configuration.functions.php';
+require_once __DIR__ . '/common.functions.php';
 
 function SeasonScoreCounter($seasonId = "")
 {
@@ -59,7 +60,8 @@ function PoolGameSetResults($pool, $games)
 		LEFT JOIN uo_team As k ON (p.hometeam=k.team_id) 
 		LEFT JOIN uo_team AS v ON (p.visitorteam=v.team_id)
 		LEFT JOIN uo_scheduling_name s ON(s.scheduling_id=p.name)
-		WHERE p.game_id IN (%s) AND pool=%d",
+		LEFT JOIN uo_game_pool gp ON (gp.game=p.game_id AND gp.timetable=1)
+		WHERE p.game_id IN (%s) AND gp.pool=%d",
         implode(",", $gameIds),
         (int) $pool,
     );
@@ -270,9 +272,9 @@ function GamePool($gameId)
 function GameIsFirstOffenceHome($gameId)
 {
     $query = sprintf(
-        "SELECT ishome 
-		FROM uo_gameevent  
-		WHERE game=%d ORDER BY time",
+        "SELECT ishome
+		FROM uo_gameevent
+		WHERE game=%d AND type='offence' ORDER BY time",
         (int) $gameId,
     );
     $result = DBQueryToValue($query);
@@ -315,7 +317,8 @@ function GamePlayers($gameId, $teamId)
         "SELECT p.player_id, pg.num, p.firstname, p.lastname, pg.captain, pg.spirit_captain
 		FROM uo_played AS pg 
 		LEFT JOIN uo_player AS p ON(pg.player=p.player_id)
-		WHERE pg.game=%d AND p.team=%d",
+		WHERE pg.game=%d AND p.team=%d
+		ORDER BY pg.num ASC, p.lastname ASC, p.firstname ASC",
         (int) $gameId,
         (int) $teamId,
     );
@@ -499,14 +502,19 @@ function GameTeamScoreBorad($gameId, $teamId)
 {
     $query = sprintf(
         "SELECT p.player_id, p.firstname, p.lastname, p.profile_id, COALESCE(t.done,0) AS done, COALESCE(s.fedin,0) AS fedin, 
-		(COALESCE(t.done,0) + COALESCE(s.fedin,0)) AS total, pel.num AS num FROM uo_player AS p 
+		COALESCE(c.callahan,0) AS callahan,
+		(COALESCE(t.done,0) + COALESCE(s.fedin,0)) AS total, pel.num AS num FROM uo_player AS p
 		LEFT JOIN (SELECT m.scorer AS scorer, COUNT(*) AS done 
 			FROM uo_goal AS m WHERE m.game='%s' AND m.scorer IS NOT NULL GROUP BY scorer) AS t ON (p.player_id=t.scorer) 
+		LEFT JOIN (SELECT m1.scorer AS scorer, COUNT(*) AS callahan
+			FROM uo_goal AS m1 WHERE m1.game='%s' AND m1.scorer IS NOT NULL AND m1.iscallahan=1
+			GROUP BY scorer) AS c ON (p.player_id=c.scorer)
 		LEFT JOIN (SELECT m2.assist AS assist, COUNT(*) AS fedin FROM uo_goal AS m2 
 			WHERE m2.game='%s' AND m2.assist IS NOT NULL GROUP BY assist) AS s ON (p.player_id=s.assist) 
 		RIGHT JOIN (SELECT player, num FROM uo_played WHERE game='%s') as pel ON (p.player_id=pel.player) 
 			WHERE p.team='%s' 
 		ORDER BY total DESC, done DESC, fedin DESC, lastname ASC, firstname ASC",
+        DBEscapeString($gameId),
         DBEscapeString($gameId),
         DBEscapeString($gameId),
         DBEscapeString($gameId),
@@ -549,8 +557,8 @@ function GameTeamDefenseBoardArray($gameId, $teamId)
 function GameScoreBoard($gameId)
 {
     $query = sprintf(
-        "SELECT p.profile_id, p.player_id, p.firstname, p.lastname, pj.name AS teamname, COALESCE(t.done,0) AS done, COALESCE(s.fedin,0) AS fedin, 
-			(COALESCE(t.done,0) + COALESCE(s.fedin,0)) AS total 
+        "SELECT p.profile_id, p.player_id, p.firstname, p.lastname, pj.name AS teamname, COALESCE(t.done,0) AS done, COALESCE(s.fedin,0) AS fedin,
+			(COALESCE(t.done,0) + COALESCE(s.fedin,0)) AS total
 		FROM uo_player AS p LEFT JOIN (SELECT m.scorer AS scorer, COUNT(*) AS done 
 		FROM uo_goal AS m WHERE m.game='%s' AND m.scorer IS NOT NULL
 			GROUP BY scorer) AS t ON (p.player_id=t.scorer) 
@@ -681,15 +689,15 @@ function GameAllGoals($gameId)
 function GameEvents($gameId)
 {
     $query = sprintf(
-        "SELECT time,ishome,type 
+        "SELECT time,ishome,type,info
 		FROM (
-			SELECT time,ishome,'timeout' AS type FROM `uo_timeout`
+			SELECT time,ishome,'timeout' AS type,NULL AS info FROM `uo_timeout`
 				WHERE game='%s'
 			UNION ALL
-			SELECT time,ishome,'spirit_timeout' AS type FROM `uo_spirit_timeout`
+			SELECT time,ishome,'spirit_timeout' AS type,NULL AS info FROM `uo_spirit_timeout`
 				WHERE game='%s'
 			UNION ALL
-			SELECT time,ishome,type FROM uo_gameevent WHERE game='%s'
+			SELECT time,ishome,type,info FROM uo_gameevent WHERE game='%s'
 		) AS tapahtuma 
 		WHERE type!='media'
 		ORDER BY time ",
@@ -699,6 +707,168 @@ function GameEvents($gameId)
     );
 
     return DBQueryToArray($query);
+}
+
+function GameCapEventTypes()
+{
+    return ['half_cap', 'time_cap'];
+}
+
+function GameIsCapEventType($type)
+{
+    return in_array($type, GameCapEventTypes(), true);
+}
+
+function GameCapEvent($gameId, $type)
+{
+    if (!GameIsCapEventType($type)) {
+        return null;
+    }
+
+    $query = sprintf(
+        "SELECT time,type,info FROM uo_gameevent
+		WHERE game=%d AND type='%s'
+		LIMIT 1",
+        (int) $gameId,
+        DBEscapeString($type),
+    );
+
+    return DBQueryToRow($query);
+}
+
+/**
+ * Every cap event of a game, keyed by cap type. One query instead of one per
+ * cap type, because the scoresheet renders both on every page load.
+ */
+function GameCapEvents($gameId)
+{
+    $query = sprintf(
+        "SELECT time,type,info FROM uo_gameevent
+		WHERE game=%d AND type IN ('%s')",
+        (int) $gameId,
+        implode("','", array_map('DBEscapeString', GameCapEventTypes())),
+    );
+
+    $events = [];
+    foreach (DBQueryToArray($query) as $event) {
+        $events[$event['type']] = $event;
+    }
+
+    return $events;
+}
+
+function GameCapEventName($type)
+{
+    if ($type === 'half_cap') {
+        return _("Halftime cap");
+    }
+    if ($type === 'time_cap') {
+        return _("Time cap");
+    }
+
+    return '';
+}
+
+/**
+ * Cap event as replay text: which cap was called, when, and the point cap it
+ * set -- "Time cap 6.45 - new point cap 4". "Point cap" is the project term for
+ * a score cap, see docs/terminology.md.
+ *
+ * $showTime decides who prints the time, and depends on where the caller puts
+ * it. Renderers that lead with the time (the scorekeeper pages, mobile, the
+ * [mm.ss] prefix in ext/rss.php) already read correctly and pass false, keeping
+ * their own stamp: "6.45 Time cap - new point cap 4". Renderers that would
+ * append it after the label instead pass !$hideTimeOnScoresheet and print no
+ * time of their own, because a trailing stamp would leave two unlabelled
+ * numbers side by side: "Time cap - new point cap 4 6.45".
+ *
+ * @param array $event Game event row
+ * @param bool $showTime Whether this text should carry the event time
+ * @return string
+ */
+function GameCapEventText($event, $showTime = true)
+{
+    $name = GameCapEventName($event['type'] ?? '');
+    if ($name === '') {
+        return '';
+    }
+
+    if ($showTime) {
+        $name .= " " . SecToMin((int) ($event['time'] ?? 0));
+    }
+
+    return sprintf(_("%s - new point cap %d"), $name, (int) ($event['info'] ?? 0));
+}
+
+function GameSetCapEvent($gameId, $type, $time, $target)
+{
+    $gameId = (int) $gameId;
+    $time = max(0, (int) $time);
+    $target = (int) $target;
+
+    if (!hasEditGameEventsRight($gameId)) {
+        die('Insufficient rights to edit game events');
+    }
+    if (!GameIsCapEventType($type) || $target < 1 || $target > 255) {
+        return false;
+    }
+
+    $eventNum = DBQueryToValue(
+        sprintf(
+            "SELECT num FROM uo_gameevent WHERE game=%d AND type='%s' LIMIT 1",
+            $gameId,
+            DBEscapeString($type),
+        ),
+    );
+
+    if ($eventNum !== null && $eventNum !== false) {
+        $query = sprintf(
+            "UPDATE uo_gameevent
+			SET time=%d,info='%d'
+			WHERE game=%d AND num=%d",
+            $time,
+            $target,
+            $gameId,
+            (int) $eventNum,
+        );
+
+        return DBExecute($query);
+    }
+
+    $lastNum = (int) DBQueryToValue(
+        sprintf("SELECT MAX(num) FROM uo_gameevent WHERE game=%d", $gameId),
+    );
+    $query = sprintf(
+        "INSERT INTO uo_gameevent (game,num,ishome,time,type,info)
+		VALUES(%d,%d,0,%d,'%s','%d')",
+        $gameId,
+        $lastNum + 1,
+        $time,
+        DBEscapeString($type),
+        $target,
+    );
+
+    return DBExecute($query);
+}
+
+function GameRemoveCapEvent($gameId, $type)
+{
+    $gameId = (int) $gameId;
+
+    if (!hasEditGameEventsRight($gameId)) {
+        die('Insufficient rights to edit game events');
+    }
+    if (!GameIsCapEventType($type)) {
+        return false;
+    }
+
+    $query = sprintf(
+        "DELETE FROM uo_gameevent WHERE game=%d AND type='%s'",
+        $gameId,
+        DBEscapeString($type),
+    );
+
+    return DBExecute($query);
 }
 
 function GameMediaEvents($gameId)
@@ -739,7 +909,7 @@ function RemoveGameMediaEvent($gameId, $urlId)
 {
     if (hasAddMediaRight()) {
         $query = sprintf(
-            "DELETE FROM uo_gameevent WHERE game=%d AND info=%d",
+            "DELETE FROM uo_gameevent WHERE game=%d AND type='media' AND info=%d",
             (int) $gameId,
             (int) $urlId,
         );
@@ -846,6 +1016,7 @@ function GameTimerState($gameId)
         "started" => false,
         "ongoing" => false,
         "paused" => false,
+        "elapsed" => 0,
         "mm" => 0,
         "ss" => 0,
         "rss" => 0,
@@ -874,6 +1045,7 @@ function GameTimerState($gameId)
     }
     $elapsed = max(0, $elapsed);
 
+    $state['elapsed'] = $elapsed;
     $state['mm'] = (int) floor($elapsed / 60);
     $state['ss'] = $elapsed % 60;
     $state['rss'] = (int) (round($state['ss'] / 5) * 5);
@@ -884,6 +1056,39 @@ function GameTimerState($gameId)
     }
 
     return $state;
+}
+
+/**
+ * Timeouts one team is allowed in a game, from the game's pool format.
+ *
+ * `timeoutsper` says whether `timeouts` counts per game or per half.
+ * `timeoutsovertime` adds recordable overtime timeout slots. Falls back to 4
+ * regulation slots when the pool does not define a limit, which is what the
+ * scorekeeper offered before pool formats were consulted.
+ *
+ * @param int $gameId uo_game.game_id
+ * @return int allowed timeouts per team
+ */
+function GameTimeoutsPerTeam($gameId)
+{
+    $default = 4;
+    $poolId = GamePool($gameId);
+    if (!$poolId) {
+        return $default;
+    }
+
+    $pool = PoolInfo($poolId);
+    if (!$pool) {
+        return $default;
+    }
+
+    $timeouts = empty($pool['timeouts']) ? $default : (int) $pool['timeouts'];
+    if (!empty($pool['timeouts']) && ($pool['timeoutsper'] ?? '') === 'half') {
+        $timeouts *= 2;
+    }
+    $timeouts += max(0, (int) ($pool['timeoutsovertime'] ?? 0));
+
+    return max(1, $timeouts);
 }
 
 function CheckGameResult($game, $home, $away)
@@ -971,7 +1176,7 @@ function SeasonForfeitGames($seasonId)
 		 LEFT JOIN uo_team vt ON g.visitorteam = vt.team_id
 		 LEFT JOIN uo_pool po ON po.pool_id = gp.pool
 		 LEFT JOIN uo_series se ON po.series = se.series_id
-		 WHERE se.season = '%s' AND g.forfeit = 1
+		 WHERE se.season = '%s' AND g.forfeit > 0
 		 ORDER BY g.time",
         DBEscapeString($seasonId),
     );
@@ -983,7 +1188,9 @@ function SeasonForfeitGames($seasonId)
     return $games;
 }
 
-function GameSetForfeit($gameId, $isForfeit)
+// Forfeit codes: 0 = not a forfeit, 1 = home team forfeited (away wins),
+// 2 = away team forfeited (home wins), 3 = both teams forfeited (both lose).
+function GameSetForfeit($gameId, $forfeit)
 {
     $seasonId = GameSeason($gameId);
     if (isEventReadonly($seasonId) && !canBypassEventReadonly($seasonId)) {
@@ -992,13 +1199,26 @@ function GameSetForfeit($gameId, $isForfeit)
     if (!hasEditGameEventsRight($gameId)) {
         die('Insufficient rights to edit game');
     }
-    LogGameUpdate($gameId, "forfeit: " . ($isForfeit ? "yes" : "no"));
+    $forfeit = max(0, min(3, intval($forfeit)));
+    $labels = [0 => "none", 1 => "home", 2 => "away", 3 => "both"];
+    LogGameUpdate($gameId, "forfeit: " . $labels[$forfeit]);
     $query = sprintf(
         "UPDATE uo_game SET forfeit='%d' WHERE game_id='%s'",
-        $isForfeit ? 1 : 0,
+        $forfeit,
         DBEscapeString($gameId),
     );
-    return DBQuery($query);
+    $result = DBQuery($query);
+    // Forfeited games carry no spirit; recompute visibility and cached team
+    // statistics so their data is dropped from averages (and restored on undo).
+    if (function_exists('RefreshGameSpiritData')) {
+        RefreshGameSpiritData($gameId);
+    }
+    // The forfeit direction changes the win/loss a game contributes, so
+    // recompute the cached pool standings the same way GameSetResult() does.
+    $poolId = GamePool($gameId);
+    ResolvePoolStandings($poolId);
+    PoolResolvePlayed($poolId);
+    return $result;
 }
 
 function GameClearResult($gameId, $updatepools = true)
@@ -1006,7 +1226,7 @@ function GameClearResult($gameId, $updatepools = true)
     if (hasEditGameEventsRight($gameId)) {
         LogGameUpdate($gameId, "result cleared");
         $query = sprintf(
-            "UPDATE uo_game SET homescore=NULL, visitorscore=NULL, isongoing='0', hasstarted='0', forfeit='0', timer_start=NULL, timer_pause_start=NULL, timer_paused_duration=0 WHERE game_id='%s'",
+            "UPDATE uo_game SET homescore=NULL, visitorscore=NULL, isongoing='0', hasstarted='0', timer_start=NULL, timer_pause_start=NULL, timer_paused_duration=0 WHERE game_id='%s'",
             DBEscapeString($gameId),
         );
         $result = DBQuery($query);

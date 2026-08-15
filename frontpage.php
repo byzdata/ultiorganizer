@@ -19,9 +19,6 @@ if (iget("hideseason")) {
 
 $htmlfile = 'locale/' . getSessionLocale() . '/LC_MESSAGES/welcome.html';
 
-//BANNER
-$html .= "<img width='100%' src='cust/" . CUSTOMIZATIONS . "/header.jpg' alt=''/>";
-
 if (is_file('cust/' . CUSTOMIZATIONS . '/' . $htmlfile)) {
     $html .= file_get_contents('cust/' . CUSTOMIZATIONS . '/' . $htmlfile);
 } else {

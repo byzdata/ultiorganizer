@@ -1025,6 +1025,7 @@ function api_handle_gameplay($tokenRow)
             'lastname' => $row['lastname'],
             'assists' => (int) $row['fedin'],
             'goals' => (int) $row['done'],
+            'callahans' => (int) $row['callahan'],
             'total' => (int) $row['total'],
             'captain' => $roleData['captain'],
             'spirit_captain' => $roleData['spirit_captain'],
@@ -1042,6 +1043,7 @@ function api_handle_gameplay($tokenRow)
             'lastname' => $row['lastname'],
             'assists' => (int) $row['fedin'],
             'goals' => (int) $row['done'],
+            'callahans' => (int) $row['callahan'],
             'total' => (int) $row['total'],
             'captain' => $roleData['captain'],
             'spirit_captain' => $roleData['spirit_captain'],
@@ -1075,11 +1077,16 @@ function api_handle_gameplay($tokenRow)
 
     $eventRows = [];
     foreach ($events as $event) {
-        $eventRows[] = [
+        $isCapEvent = GameIsCapEventType($event['type']);
+        $eventRow = [
             'time' => (int) $event['time'],
-            'team' => intval($event['ishome']) ? 'home' : 'away',
+            'team' => $isCapEvent ? null : (intval($event['ishome']) ? 'home' : 'away'),
             'type' => $event['type'],
         ];
+        if ($isCapEvent) {
+            $eventRow['target'] = (int) $event['info'];
+        }
+        $eventRows[] = $eventRow;
     }
 
     $mediaEventRows = [];

@@ -1,0 +1,7 @@
+Diese E-Mail wurde Ihnen gesendet, weil für $ultiorganizer ein Benutzerkonto erstellt wurde,
+mit dem Sie Ihr Spielerprofil verwalten können.
+
+Bitte folgen Sie dem untenstehenden Link oder kopieren Sie ihn in die Adressleiste Ihres Browsers, um
+Ihr Benutzerkonto zu bestätigen.
+
+$url

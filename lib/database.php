@@ -9,7 +9,7 @@ denyDirectLibAccess(__FILE__);
  * Update this constant whenever you add a new `upgradeNN()` step in
  * `sql/upgrade_db.php`, and export the current schema from the upgraded database.
  */
-define('DB_VERSION', 95);
+define('DB_VERSION', 97);
 
 /**
  * Maximum age in seconds before an automatic upgrade lock is considered stale.
@@ -157,6 +157,9 @@ require_once __DIR__ . '/persistent-cache.functions.php';
 function DBQueryCacheable($query)
 {
     if (!function_exists('CacheRememberFor') || !function_exists('IsPersistentCacheEnabled')) {
+        return false;
+    }
+    if (!empty($GLOBALS['uo_persistent_cache_bypass'])) {
         return false;
     }
     if (!IsPersistentCacheEnabled()) {
@@ -486,6 +489,7 @@ function DBQueryToValue($query, $docasting = false)
             [$query, $docasting],
             0,
             fn() => DBQueryToValueUncached($query, $docasting),
+            static fn($value) => $value !== null,
         );
     }
     return DBQueryToValueUncached($query, $docasting);
@@ -554,6 +558,7 @@ function DBQueryToArray($query, $docasting = false)
             [$query, $docasting],
             0,
             fn() => DBQueryToArrayUncached($query, $docasting),
+            static fn($value) => $value !== [],
         );
     }
     return DBQueryToArrayUncached($query, $docasting);
@@ -680,6 +685,7 @@ function DBQueryToRow($query, $docasting = false)
             [$query, $docasting],
             0,
             fn() => DBQueryToRowUncached($query, $docasting),
+            static fn($value) => $value !== null && $value !== false,
         );
     }
     return DBQueryToRowUncached($query, $docasting);

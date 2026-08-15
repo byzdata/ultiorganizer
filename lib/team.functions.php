@@ -22,7 +22,7 @@ function TeamPlayerAccreditationArray($teamId)
 {
     $ret = [];
     foreach (TeamPlayerList($teamId) as $row) {
-        $ret["" . $row['accreditation_id']] = $row['firstname'] . " " . $row['lastname'];
+        $ret["" . $row['player_id']] = $row['firstname'] . " " . $row['lastname'];
     }
     return $ret;
 }
@@ -659,9 +659,9 @@ function TeamStatsByPool($poolId, $teamId)
     $query = sprintf(
         "
 		SELECT COUNT(*) AS games,
-  		COUNT((hometeam=%d AND (homescore>visitorscore)) OR (visitorteam=%d AND (homescore<visitorscore)) OR NULL) AS wins, 
-  		COUNT((hometeam=%d AND (homescore=visitorscore)) OR (visitorteam=%d AND (homescore=visitorscore)) OR NULL) AS draws, 
-  		COUNT((hometeam=%d AND (homescore<visitorscore)) OR (visitorteam=%d AND (homescore>visitorscore)) OR NULL) AS losses 
+		COUNT((hometeam=%d AND ((forfeit=0 AND homescore>visitorscore) OR forfeit=2)) OR (visitorteam=%d AND ((forfeit=0 AND homescore<visitorscore) OR forfeit=1)) OR NULL) AS wins,
+		COUNT((hometeam=%d AND (forfeit=0 AND homescore=visitorscore)) OR (visitorteam=%d AND (forfeit=0 AND homescore=visitorscore)) OR NULL) AS draws,
+		COUNT((hometeam=%d AND ((forfeit=0 AND homescore<visitorscore) OR forfeit=1 OR forfeit=3)) OR (visitorteam=%d AND ((forfeit=0 AND homescore>visitorscore) OR forfeit=2 OR forfeit=3)) OR NULL) AS losses
 		FROM uo_game 
 		LEFT JOIN uo_game_pool gp ON(game_id=gp.game)
 		WHERE (hometeam=%d OR visitorteam=%d) AND isongoing=0 AND hasstarted>0
@@ -684,9 +684,9 @@ function TeamStats($teamId)
     $query = sprintf(
         "
 		SELECT COUNT(*) AS games, 
-  		COUNT((hometeam=%d AND (homescore>visitorscore)) OR (visitorteam=%d AND (homescore<visitorscore)) OR NULL) AS wins, 
-  		COUNT((hometeam=%d AND (homescore=visitorscore)) OR (visitorteam=%d AND (homescore=visitorscore)) OR NULL) AS draws,
-  		COUNT((hometeam=%d AND (homescore<visitorscore)) OR (visitorteam=%d AND (homescore>visitorscore)) OR NULL) AS losses 
+		COUNT((hometeam=%d AND ((forfeit=0 AND homescore>visitorscore) OR forfeit=2)) OR (visitorteam=%d AND ((forfeit=0 AND homescore<visitorscore) OR forfeit=1)) OR NULL) AS wins,
+		COUNT((hometeam=%d AND (forfeit=0 AND homescore=visitorscore)) OR (visitorteam=%d AND (forfeit=0 AND homescore=visitorscore)) OR NULL) AS draws,
+		COUNT((hometeam=%d AND ((forfeit=0 AND homescore<visitorscore) OR forfeit=1 OR forfeit=3)) OR (visitorteam=%d AND ((forfeit=0 AND homescore>visitorscore) OR forfeit=2 OR forfeit=3)) OR NULL) AS losses
   		FROM uo_game 
 		LEFT JOIN uo_game_pool gp ON(game_id=gp.game)
 		WHERE (hasstarted>0) AND (hometeam=%d OR visitorteam=%d) AND isongoing=0 AND gp.timetable=1",
@@ -950,7 +950,7 @@ function TeamScoreBoardWithDefenses($teamId, $pools, $sorting, $limit)
         $query = sprintf(
             "
 			SELECT p.player_id, p.firstname, p.lastname, j.name AS teamname, COALESCE(t.done,0) AS done, COALESCE(s.fedin,0) AS fedin, 
-				COALESCE(t1.callahan,0) AS callahan, (COALESCE(t.done,0) + COALESCE(s.fedin,0)) AS total, COALESCE(pel.games,0) AS games, COALESCE(d.deftotal) AS deftotal   
+				COALESCE(t1.callahan,0) AS callahan, (COALESCE(t.done,0) + COALESCE(s.fedin,0)) AS total, COALESCE(pel.games,0) AS games, COALESCE(d.deftotal,0) AS deftotal
 			FROM uo_player AS p 
 				LEFT JOIN (SELECT m.scorer AS scorer, COUNT(*) AS done FROM uo_goal AS m 
 					LEFT JOIN uo_game_pool AS ps ON (m.game=ps.game) 
@@ -1151,12 +1151,13 @@ function TeamCopyRoster($copyfrom, $copyto)
 {
     if (hasEditPlayersRight($copyto)) {
         foreach (TeamPlayerList($copyfrom) as $player) {
+            $profileIdSql = !empty($player["profile_id"]) ? (string) (int) $player["profile_id"] : "NULL";
             $query = sprintf(
                 "INSERT INTO uo_player(firstname, lastname, profile_id, accreditation_id, team, num)
-      			VALUES ('%s','%s',%d,'%s',%d,%d)",
+      			VALUES ('%s','%s',%s,'%s',%d,%d)",
                 DBEscapeString($player["firstname"]),
                 DBEscapeString($player["lastname"]),
-                (int) $player["profile_id"],
+                $profileIdSql,
                 DBEscapeString($player["accreditation_id"]),
                 (int) $copyto,
                 (int) $player["num"],

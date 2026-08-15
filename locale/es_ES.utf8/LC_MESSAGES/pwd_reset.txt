@@ -1,4 +1,4 @@
-Se ha solicitado un restablecimiento de contraseña para su cuenta en ULTIRANKS.
+Se ha solicitado un restablecimiento de contraseña para su cuenta en Ultiorganizer.
 Nombre de usuario: $username
 
 Para establecer una nueva contraseña, abra este enlace:

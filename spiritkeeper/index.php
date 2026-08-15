@@ -3,6 +3,11 @@
 include_once '../lib/database.php';
 OpenConnection();
 
+// Live spirit entry must always read fresh state; opt this app out of the
+// cross-request query cache so a submit-then-view flow never returns a
+// pre-write snapshot.
+DisablePersistentCacheForRequest();
+
 include_once $include_prefix . 'lib/session.functions.php';
 include_once $include_prefix . 'lib/team.functions.php';
 include_once $include_prefix . 'lib/season.functions.php';
@@ -100,7 +105,7 @@ echo "<div data-role='content'>\n";
 echo $pageHtml;
 echo "</div>\n";
 echo "<div data-role='footer' class='ui-bar' data-position='fixed'>\n";
-echo "<a class='footer-compact' href='" . BASEURL . "/' data-role='button' rel='external' data-icon='home'>" . _("ULTIRANKS") . "</a>";
+echo "<a class='footer-compact' href='" . BASEURL . "/' data-role='button' rel='external' data-icon='home'>" . _("Ultiorganizer") . "</a>";
 if ($showLogout) {
     echo "<a class='footer-compact' href='?view=logout' data-role='button'>" . _("Log out") . "</a>";
 }
