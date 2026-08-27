@@ -1,0 +1,430 @@
+/*
+ * WINDMILL skin overrides.
+ * Loaded on top of cust/default/ultiorganizer.css (see styles() in localization.php).
+ * Only rules that differ from the default skin belong here.
+ */
+
+body {
+	background-color: #FAFAFA;
+	font-family: Verdana, Arial, Tahoma, Helvetica, sans-serif;
+	font-size: 11px;
+	line-height: 1.4;
+	margin: 0;
+}
+
+p {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: #000000;
+	font-size: 10px;
+	text-align: left;
+	text-decoration: none;
+}
+
+h1 {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: #000000;
+	font-size: 10pt;
+	line-height: 12pt;
+	font-weight: bold;
+	text-transform: uppercase;
+}
+
+h2 {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: #000000;
+	font-size: 9pt;
+	line-height: 12pt;
+	font-weight: bold;
+	padding-top: 5px;
+}
+
+h3 {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: #000000;
+	font-size: 8pt;
+	line-height: 10pt;
+	font-weight: bold;
+	padding-top: 5px;
+}
+
+h4 {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: #000000;
+	font-size: 8pt;
+	text-align: left;
+	text-decoration: none;
+	font-weight: bold;
+	vertical-align: bottom;
+	font-variant: small-caps;
+}
+
+a:link,
+a:visited {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: #004466;
+	font-size: 10px;
+	text-align: left;
+	text-decoration: none;
+}
+
+a:hover,
+a:focus {
+	text-decoration: underline;
+}
+
+input {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 10px;
+}
+
+button {
+	cursor: pointer;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 10px;
+}
+
+th {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: #ffffff;
+	font-size: 10px;
+	text-align: left;
+	text-decoration: none;
+	background-color: #006699;
+}
+
+th a:link,
+th a:visited {
+	color: #ffffff;
+	font-size: 10px;
+	text-align: left;
+	text-decoration: underline;
+}
+
+td {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: #000000;
+	font-size: 10px;
+	text-align: left;
+	text-decoration: none;
+}
+
+.page {
+	width: 860px;
+	margin-left: auto;
+	margin-right: auto;
+	overflow: visible;
+}
+
+.page_top {
+	width: 100%;
+}
+
+.navigation_bar {
+	margin-top: 10px;
+}
+
+.logo {
+	border: 0;
+	vertical-align: middle;
+	width: 165px;
+	height: 75px;
+}
+
+.menu_left {
+	float: left;
+	text-align: left;
+	vertical-align: top;
+	background-color: #eeeeee;
+	width: 175px;
+}
+
+.content {
+	text-align: left;
+	border: 0;
+	width: 655px;
+	margin: 0px;
+	margin-left: 15px;
+	margin-right: 15px;
+}
+
+.header_text:link,
+.header_text:visited,
+.header_text:active,
+.header_text:hover,
+.header_text:focus {
+	font-family: Arial, Helvetica, sans-serif;
+	color: #006699;
+	font-size: 16pt;
+	font-weight: normal;
+	text-decoration: none;
+	text-transform: uppercase;
+}
+
+.seasondropdown {
+	width: 160px;
+	background-color: #eeeeee;
+	color: #9A0000;
+	border-width: 1px;
+	border-style: dotted;
+	border-color: #9A0000;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 10px;
+}
+
+.nav:link,
+.nav:visited {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 8.5pt;
+	font-weight: bold;
+	color: #2d2d2d;
+	text-decoration: none;
+}
+
+.nav:active,
+.nav:hover,
+.nav:focus {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 8.5pt;
+	font-weight: bold;
+	color: #006699;
+	text-decoration: none;
+}
+
+.subnav,
+.subnav:link,
+.subnav:visited {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 8.5pt;
+	color: #2d2d2d;
+	text-decoration: none;
+}
+
+.subnav:active,
+.subnav:hover,
+.subnav:focus {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 8.5pt;
+	color: #006699;
+	text-decoration: none;
+}
+
+.menuseasonlevel {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 10px;
+	font-weight: bold;
+	text-align: center;
+	text-transform: uppercase;
+	padding-top: 0.5em;
+	padding-right: 0.5em;
+}
+
+.menuserieslevel {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 10px;
+	font-weight: bold;
+}
+
+.menupoollevel {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 10px;
+	padding-left: 5px;
+}
+
+.thsort,
+.thsort:link,
+.thsort:visited {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 10px;
+	color: #ffffff;
+	text-decoration: underline;
+}
+
+.thsort:active,
+.thsort:hover,
+.thsort:focus {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 10px;
+	color: #006699;
+	text-decoration: none;
+}
+
+.button {
+	cursor: pointer;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 10px;
+}
+
+.input {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 10px;
+}
+
+.checkbox {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 10px;
+	padding: 1px;
+	margin: 1px;
+}
+
+.fakeinput {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 10px;
+	color: #000000;
+	background-color: #ffffff;
+	border: 0;
+}
+
+.deletebutton {
+	cursor: pointer;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 8px;
+	padding: 0;
+	margin: 0;
+	font-weight: bold;
+	border: 1px solid #006;
+}
+
+.deletebutton:hover {
+	border-color: red;
+}
+
+.dropdown {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 10px;
+}
+
+.highlight {
+	background-color: #99ccff;
+}
+
+.list_letter {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: #000000;
+	font-size: 10pt;
+	line-height: 12pt;
+	font-weight: bold;
+	text-transform: uppercase;
+}
+
+.selectable_highlight {
+	background-color: #A6C7E9;
+	cursor: pointer;
+}
+
+.home {
+	background-color: #99ccff;
+	color: white;
+}
+
+.guest {
+	background-color: #ef7a7a;
+	color: white;
+}
+
+.homefontcolor {
+	color: #99ccff;
+}
+
+.guestfontcolor {
+	color: #ef7a7a;
+}
+
+.infocell {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: #000000;
+	font-size: 8pt;
+	text-align: left;
+	text-decoration: none;
+	font-weight: bold;
+	vertical-align: bottom;
+	font-variant: small-caps;
+}
+
+.headerlink {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: #000000;
+	font-size: 12pt;
+	text-align: left;
+	text-decoration: none;
+	font-weight: bold;
+	vertical-align: bottom;
+	font-variant: small-caps;
+}
+
+.groupinglink:link,
+.groupinglink:visited {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: #2d2d2d;
+	font-size: 10pt;
+	text-align: left;
+	text-decoration: underline;
+	font-weight: bold;
+	vertical-align: bottom;
+	font-variant: small-caps;
+}
+
+.groupinglink:hover,
+.groupinglink:focus {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: #006699;
+	font-size: 10pt;
+	text-align: left;
+	text-decoration: none;
+	font-weight: bold;
+	vertical-align: bottom;
+	font-variant: small-caps;
+}
+
+.selgroupinglink {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: #006699;
+	font-size: 10pt;
+	text-align: left;
+	text-decoration: none;
+	font-weight: bold;
+	vertical-align: bottom;
+	font-variant: small-caps;
+}
+
+.smallbutton {
+	cursor: pointer;
+	background-color: #eeeeee;
+	border: 1px solid #006;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 10px;
+}
+
+.noborder {
+	border-style: none;
+}
+
+.navlink,
+.navlink:link,
+.navlink:visited {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 10px;
+	color: #2d2d2d;
+	text-decoration: none;
+}
+
+.navlink:active,
+.navlink:hover,
+.navlink:focus {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 10px;
+	color: #006699;
+	text-decoration: none;
+}
+
+.placeheader {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: #000000;
+	font-size: 8pt;
+	text-align: left;
+	text-decoration: none;
+	font-weight: bold;
+}
+
+.menulink {
+	font-style: italic;
+}
