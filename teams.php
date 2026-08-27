@@ -37,6 +37,8 @@ if (!$seasonInfo) {
 $series = SeasonSeries($season, true);
 $seasonPointsAvailable = !empty($seasonInfo['use_season_points']);
 
+$html .= SeasonBannerHTML($seasonInfo['season_id']);
+
 $menutabs[_("Divisions")] = "?view=teams&season=$season&list=allteams";
 // not a useful view
 // $menutabs[_("By pool")] = "?view=teams&season=$season&list=bypool";
@@ -285,9 +287,13 @@ if ($list == "allteams" || $list == "byseeding") {
     $series = SeasonSeries($seasonInfo['season_id'], true);
     foreach ($series as $ser) {
         $seriesPlacements = [];
-        $seriesConfirmed[] = SeriesFinalStandingsConfirmed($ser['series_id']);
+        $confirmed = SeriesFinalStandingsConfirmed($ser['series_id']);
+        $seriesConfirmed[] = $confirmed;
         $teams  = SeriesFinalStandings($ser['series_id']);
         foreach ($teams as $index => $team) {
+            if (!$confirmed) {
+                $placements[$index + 1] = true;
+            }
             if (isset($team['team_id'])) {
                 $htmltmp = "";
                 if (intval($seasonInfo['isinternational'])) {
