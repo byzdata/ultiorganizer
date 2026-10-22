@@ -1,0 +1,1038 @@
+/*
+ * Ultiranks skin. Loads after cust/default/ultiorganizer.css and only carries
+ * what differs: the brand palette (navy #00466f, teal #4caecf, gray-blue
+ * #849daa, light gray #e6e7e8), the brand type (Audiowide for the wordmark,
+ * Inter for everything else, JetBrains Mono for scores and table figures), and
+ * a card-based layout with a full-width navy header.
+ */
+
+/* Fonts are self-hosted (SIL Open Font License, see fonts/OFL-*.txt). */
+@font-face {
+	font-family: "Audiowide";
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url("fonts/audiowide-v22-latin-regular.woff2") format("woff2");
+}
+
+@font-face {
+	font-family: "Inter";
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url("fonts/inter-v20-latin-regular.woff2") format("woff2");
+}
+
+@font-face {
+	font-family: "Inter";
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url("fonts/inter-v20-latin-500.woff2") format("woff2");
+}
+
+@font-face {
+	font-family: "Inter";
+	font-style: normal;
+	font-weight: 600;
+	font-display: swap;
+	src: url("fonts/inter-v20-latin-600.woff2") format("woff2");
+}
+
+@font-face {
+	font-family: "Inter";
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url("fonts/inter-v20-latin-700.woff2") format("woff2");
+}
+
+@font-face {
+	font-family: "JetBrains Mono";
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url("fonts/jetbrains-mono-v24-latin-regular.woff2") format("woff2");
+}
+
+@font-face {
+	font-family: "JetBrains Mono";
+	font-style: normal;
+	font-weight: 600;
+	font-display: swap;
+	src: url("fonts/jetbrains-mono-v24-latin-600.woff2") format("woff2");
+}
+
+:root {
+	/* Surfaces */
+	--canvas: #e6e7e8; /* ultiranks */
+	--surface: #ffffff;
+	--surface-muted: #f5f6f7; /* ultiranks */
+
+	/* Text */
+	--text: #222222; /* ultiranks */
+	--text-muted: #5b7480; /* ultiranks */
+	--text-faint: #8a979e; /* ultiranks */
+	--text-inverse: #ffffff;
+
+	/* Links */
+	--link: #00466f; /* ultiranks */
+	--link-hover: #2b6d94; /* ultiranks */
+
+	/* Accent */
+	--accent: #00466f; /* ultiranks */
+	--accent-strong: #00466f; /* ultiranks */
+	--accent-deep: #002f4b; /* ultiranks */
+
+	/* Borders */
+	--menu-border: rgba(0, 70, 111, 0.16); /* ultiranks */
+	--border-strong: rgba(0, 70, 111, 0.28); /* ultiranks */
+	--border: #e6e7e8; /* ultiranks */
+
+	/* Tables */
+	--table-header-bg: #00466f; /* ultiranks */
+	--table-header-text: #ffffff;
+	--table-row-odd: #ffffff;
+	--table-row-even: #f5f6f7; /* ultiranks */
+	--table-row-hover: #eef3f6; /* ultiranks */
+	--admin-row-alt: #eef3f6; /* ultiranks */
+
+	/* Menu & navigation */
+	--menu-section-bg: transparent; /* ultiranks */
+	--menu-highlight: rgba(0, 70, 111, 0.08); /* ultiranks */
+	--menu-dropdown-bg: #ffffff; /* ultiranks */
+	--menu-dropdown-border: rgba(0, 70, 111, 0.3); /* ultiranks */
+
+	/* Page-menu tabs */
+	--tab-border: rgba(0, 70, 111, 0.16); /* ultiranks */
+	--tab-hover-bg: #f2f6f8; /* ultiranks */
+	--tab-hover-border: rgba(0, 70, 111, 0.3); /* ultiranks */
+	--tab-active-bg: #00466f; /* ultiranks */
+	--tab-active-border: #00466f; /* ultiranks */
+
+	/* Teams */
+	--team-home: #00466f; /* ultiranks */
+	--team-away: #4caecf; /* ultiranks */
+
+	/* Status / semantic */
+	--status-warning: #b42318; /* ultiranks */
+	--status-positive: #2f5721;
+	--status-negative: #6b1a1a;
+	--status-warning-bg: #fde7e4; /* ultiranks */
+	--highlight: #d6ebf3; /* ultiranks */
+	--played-bg: #e6e7e8; /* ultiranks */
+	--halftime-bg: #d3dbe0; /* ultiranks */
+
+	/* Ultiranks-only: type stacks, radii and elevation used by the rules below */
+	--font-display: "Audiowide", "Montserrat", sans-serif;
+	--font-body: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+	--font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+	--radius-card: 16px;
+	--radius-control: 10px;
+	--shadow-card: 0 2px 8px rgba(0, 70, 111, 0.08);
+	--content-width: 1216px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Base type: Inter at a readable size instead of the default 10-11px Verdana.
+ * ------------------------------------------------------------------------ */
+
+body {
+	font-family: var(--font-body);
+	font-size: 14px;
+	line-height: 1.45;
+	color: var(--text);
+}
+
+p,
+td,
+th,
+li,
+input,
+select,
+textarea,
+button {
+	font-family: var(--font-body);
+	font-size: 14px;
+}
+
+p {
+	line-height: 1.5;
+}
+
+a:link,
+a:visited {
+	font-size: inherit;
+	text-decoration: none;
+}
+
+a:hover,
+a:focus {
+	text-decoration: underline;
+}
+
+h1 {
+	color: var(--accent);
+	font-family: var(--font-display);
+	font-size: 26px;
+	line-height: 1.15;
+	font-weight: 400;
+	letter-spacing: 0.01em;
+	text-transform: none;
+	margin: 8px 0 16px;
+}
+
+h2 {
+	color: var(--accent);
+	font-size: 20px;
+	line-height: 1.25;
+	font-weight: 600;
+	margin: 24px 0 12px;
+	padding-top: 0;
+}
+
+h3 {
+	color: var(--text);
+	font-size: 16px;
+	line-height: 1.3;
+	font-weight: 600;
+	margin: 20px 0 10px;
+	padding-top: 0;
+}
+
+h4 {
+	color: var(--text-muted);
+	font-size: 12px;
+	font-variant: normal;
+	font-weight: 600;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+}
+
+/* ---------------------------------------------------------------------------
+ * Page frame: full-width navy header, then menu and content as cards on a
+ * light-gray canvas.
+ * ------------------------------------------------------------------------ */
+
+.page {
+	max-width: none;
+	border: 0;
+	border-radius: 0;
+	box-shadow: none;
+	background-color: transparent;
+	padding-bottom: 0;
+}
+
+.page_top {
+	height: auto;
+	min-height: 64px;
+	border-bottom: 0;
+	background-color: var(--accent);
+	box-sizing: border-box;
+	padding: 0 max(16px, calc((100% - var(--content-width)) / 2));
+}
+
+.page_top > form > table {
+	min-height: 64px;
+}
+
+.topheader_left,
+.topheader_right {
+	vertical-align: middle;
+}
+
+.topheader_right {
+	padding-right: 0;
+}
+
+.header_text:link,
+.header_text:visited,
+.header_text:active,
+.header_text:hover,
+.header_text:focus {
+	color: var(--text-inverse);
+	font-family: var(--font-display);
+	font-size: 22px;
+	letter-spacing: 0.01em;
+	margin-left: 0;
+	gap: 10px;
+}
+
+.header_logo {
+	height: 32px;
+}
+
+.topheadertext,
+.topheaderlink:link,
+.topheaderlink:visited {
+	color: rgba(255, 255, 255, 0.85);
+	font-size: 13px;
+	font-weight: 600;
+	text-decoration: none;
+}
+
+.topheaderlink:hover,
+.topheaderlink:focus {
+	color: var(--text-inverse);
+	text-decoration: underline;
+}
+
+.page_top .input {
+	border: 1px solid rgba(255, 255, 255, 0.4) !important; /* overrides the inline login-box border */
+	border-radius: 999px;
+	background-color: rgba(255, 255, 255, 0.12);
+	color: var(--text-inverse);
+	padding: 6px 12px;
+	font-size: 13px;
+	width: 120px;
+}
+
+.page_top .input::placeholder {
+	color: rgba(255, 255, 255, 0.6);
+}
+
+.page_top .button {
+	border: 0 !important; /* overrides the inline login-button border */
+	border-radius: 999px;
+	background-color: var(--surface);
+	color: var(--accent);
+	font-weight: 700;
+	font-size: 13px;
+	padding: 7px 16px;
+}
+
+.localeselection {
+	border-radius: 2px;
+}
+
+.page_middle {
+	max-width: var(--content-width);
+	margin: 0 auto;
+	box-sizing: border-box;
+	padding: 24px 16px 32px;
+}
+
+/* The structural table carries an inline white border and background. */
+.page_middle > table {
+	border: 0 !important;
+	background-color: transparent !important;
+	border-collapse: separate;
+}
+
+.menu_column {
+	width: 260px;
+}
+
+.menu_left {
+	width: 236px;
+	padding-right: 24px;
+}
+
+.tdcontent {
+	vertical-align: top;
+}
+
+.content {
+	width: auto;
+	box-sizing: border-box;
+	margin: 0;
+	padding: 24px 28px 28px;
+	border-radius: var(--radius-card);
+	box-shadow: var(--shadow-card);
+}
+
+.content > h1:first-child,
+.content > h2:first-child {
+	margin-top: 0;
+}
+
+.page_bottom {
+	color: var(--text-muted);
+}
+
+/* "Back to ..." line between the header and the cards. */
+.navigation_bar {
+	width: auto;
+	height: auto;
+	max-width: var(--content-width);
+	margin: 16px auto -8px;
+	padding: 0 16px;
+	box-sizing: border-box;
+}
+
+.navigation_bar_text {
+	margin: 0;
+	font-size: 13px;
+	color: var(--text-muted);
+}
+
+.logo {
+	width: 120px;
+	margin: 12px auto;
+}
+
+/* ---------------------------------------------------------------------------
+ * Left menu
+ * ------------------------------------------------------------------------ */
+
+.leftmenulinks {
+	width: 100%;
+	margin: 0 0 16px;
+	padding: 8px;
+	border: 0;
+	border-radius: var(--radius-card);
+	background-color: var(--surface);
+	box-shadow: var(--shadow-card);
+	box-sizing: border-box;
+}
+
+.leftmenulinks_plain {
+	width: 100%;
+}
+
+.leftmenulinks td {
+	font-size: 14px;
+}
+
+.menuseasonlevel,
+.menuserieslevel {
+	background-color: transparent;
+	text-align: left;
+	padding: 10px 10px 4px;
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--text-muted);
+}
+
+.seasonnav:link,
+.seasonnav:visited {
+	color: var(--accent);
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+	text-align: left !important; /* overrides the inline centering */
+	text-decoration: none;
+}
+
+.seasonnav:hover,
+.seasonnav:focus {
+	color: var(--link-hover);
+	font-weight: 700;
+	text-decoration: underline;
+}
+
+.nav:link,
+.nav:visited,
+.subnav:link,
+.subnav:visited,
+.navpoollink:link,
+.navpoollink:visited {
+	color: var(--text);
+	font-size: 14px;
+	font-weight: 500;
+	text-transform: none;
+	padding: 7px 10px;
+	border-radius: 8px;
+}
+
+.nav:hover,
+.nav:focus,
+.subnav:hover,
+.subnav:focus,
+.navpoollink:hover,
+.navpoollink:focus {
+	color: var(--accent);
+	background-color: var(--menu-highlight);
+	text-decoration: none;
+}
+
+/* Division names act as section labels above their pool links. */
+.menuserieslevel .subnav:link,
+.menuserieslevel .subnav:visited {
+	padding: 0;
+	color: var(--text-muted);
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+}
+
+.menuserieslevel .subnav:hover,
+.menuserieslevel .subnav:focus {
+	background-color: transparent;
+	color: var(--accent);
+}
+
+.menupoollevel .navpoollink:link,
+.menupoollevel .navpoollink:visited {
+	padding-left: 16px;
+}
+
+.menuseparator {
+	border-top: 1px solid var(--border);
+	padding: 4px 0;
+}
+
+.seasondropdown {
+	width: 100%;
+	box-sizing: border-box;
+	font-size: 14px;
+	padding: 8px 10px;
+	border-radius: var(--radius-control);
+}
+
+.guides,
+.guides a:link,
+.guides a:visited {
+	color: var(--text-muted);
+	font-size: 13px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Forms and buttons
+ * ------------------------------------------------------------------------ */
+
+.input,
+select,
+textarea {
+	border: 1px solid rgba(0, 70, 111, 0.2);
+	border-radius: var(--radius-control);
+	padding: 6px 10px;
+	background-color: var(--surface);
+	color: var(--text);
+}
+
+.input:focus,
+select:focus,
+textarea:focus {
+	outline: 2px solid var(--team-away);
+	outline-offset: 1px;
+}
+
+.button,
+a.button,
+input[type="submit"],
+input[type="button"] {
+	-webkit-appearance: none;
+	appearance: none;
+	border: 1px solid var(--accent);
+	border-radius: 999px;
+	background-color: var(--accent);
+	color: var(--text-inverse);
+	font-weight: 600;
+	padding: 7px 16px;
+	cursor: pointer;
+}
+
+.button:hover,
+a.button:hover,
+input[type="submit"]:hover,
+input[type="button"]:hover {
+	background-color: var(--link-hover);
+	border-color: var(--link-hover);
+}
+
+/* ---------------------------------------------------------------------------
+ * Data tables: navy header band, light-gray striping, no grid lines.
+ * ------------------------------------------------------------------------ */
+
+table {
+	margin: 0 0 8px;
+}
+
+th {
+	background-color: var(--table-header-bg);
+	color: var(--table-header-text);
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	padding: 10px 12px;
+}
+
+th a:link,
+th a:visited {
+	color: var(--table-header-text);
+	font-size: 12px;
+	text-decoration: none;
+}
+
+td {
+	font-size: 14px;
+}
+
+table[border="1"],
+table[border="2"] {
+	border: 0;
+	border-collapse: separate;
+	border-spacing: 0;
+	border-radius: 12px;
+	overflow: hidden;
+	box-shadow: 0 0 0 1px var(--menu-border);
+	/* Pool standings set font-weight:bold inline. */
+	font-weight: 400 !important;
+}
+
+table[border="1"] th,
+table[border="1"] td,
+table[border="2"] th,
+table[border="2"] td {
+	border: 0;
+	border-bottom: 1px solid var(--border);
+	padding: 10px 12px;
+}
+
+table[border="1"] tr:last-child td,
+table[border="2"] tr:last-child td {
+	border-bottom: 0;
+}
+
+table[border="2"] tr:nth-child(odd) td {
+	background-color: var(--table-row-even);
+}
+
+/* Figures in standings and statistics line up in the mono face. */
+table[border="2"] td.center,
+.statistics-table td,
+.teams-table td.center {
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+	font-size: 14px;
+}
+
+table[border="2"] td a:link,
+table[border="2"] td a:visited {
+	color: var(--accent);
+	font-weight: 600;
+}
+
+/*
+ * Standings position: the app tints the cell with the color of the pool the
+ * position moves to (see pool_colors.php). Shape it as a round badge.
+ */
+table[border="2"] td.center > div[style*="background-color"] {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 28px;
+	height: 28px;
+	border-radius: 999px;
+	font-weight: 700;
+	font-size: 13px;
+	box-shadow: inset 0 0 0 1px rgba(0, 70, 111, 0.12);
+}
+
+/*
+ * The app paints pool colors as a 30% tint, which washes the brand palette out.
+ * For the colors in pool_colors.php, paint the solid brand color instead (the
+ * inline style starts with the full hex, so it can be matched).
+ */
+.content [style*="background-color:#00466F" i],
+.content [style*="background-color:#2B6D94" i],
+.content [style*="background-color:#3E5560" i],
+.content [style*="background-color:#0B2E44" i] {
+	color: var(--text-inverse) !important;
+}
+
+.content [style*="background-color:#00466F" i] {
+	background-color: #00466f !important;
+}
+
+.content [style*="background-color:#2B6D94" i] {
+	background-color: #2b6d94 !important;
+}
+
+.content [style*="background-color:#3E5560" i] {
+	background-color: #3e5560 !important;
+}
+
+.content [style*="background-color:#0B2E44" i] {
+	background-color: #0b2e44 !important;
+}
+
+.content [style*="background-color:#4CAECF" i] {
+	background-color: #4caecf !important;
+	color: var(--accent) !important;
+}
+
+.content [style*="background-color:#9AD3E6" i] {
+	background-color: #9ad3e6 !important;
+	color: var(--accent) !important;
+}
+
+.content [style*="background-color:#849DAA" i] {
+	background-color: #849daa !important;
+	color: var(--text) !important;
+}
+
+.content [style*="background-color:#6C8EA0" i] {
+	background-color: #6c8ea0 !important;
+	color: var(--text) !important;
+}
+
+.content [style*="background-color:"] a:link,
+.content [style*="background-color:"] a:visited {
+	color: inherit;
+}
+
+/* The row of target pools under a standings table reads as a color legend. */
+table[border="2"] + table {
+	width: auto !important;
+	border-collapse: separate;
+	border-spacing: 8px 0;
+	margin: 4px 0 8px -8px;
+}
+
+table[border="2"] + table td[style*="background-color"] {
+	width: auto !important;
+	padding: 5px 14px;
+	border-radius: 999px;
+	font-size: 13px;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.table-legend {
+	color: var(--text-muted);
+	font-size: 12px;
+	font-weight: 500;
+	text-align: left;
+	padding-top: 6px;
+}
+
+.games-table,
+.teams-table {
+	width: 100%;
+	border-collapse: separate;
+	border-spacing: 0;
+	border: 0;
+	border-radius: 12px;
+	overflow: hidden;
+	box-shadow: 0 0 0 1px var(--menu-border);
+}
+
+.games-table td,
+.teams-table td {
+	padding: 10px 12px;
+	border-bottom: 1px solid var(--border);
+}
+
+.games-table th,
+.teams-table th {
+	padding: 10px 12px;
+}
+
+.games-table tr:first-child td,
+.teams-table tr:first-child td {
+	border-top: 0;
+}
+
+.games-table tr:nth-of-type(even) td,
+.teams-table tr:nth-of-type(even) td {
+	background-color: var(--table-row-even);
+}
+
+.games-table tr:hover td,
+.teams-table tr:hover td {
+	background-color: var(--table-row-hover);
+}
+
+.game-winner {
+	color: var(--accent);
+	font-weight: 700;
+}
+
+.game-loser {
+	color: var(--text-muted);
+	font-weight: 500;
+}
+
+/* Scores (the narrow cells either side of the dash) use the mono face. */
+.games-table td[style*="width:15px"],
+.content table[width="100%"] td[style*="width:15px"] {
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+	font-weight: 600;
+}
+
+.infotable th {
+	border-radius: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * Page tabs and grouping links as pills
+ * ------------------------------------------------------------------------ */
+
+.pagemenu_container ul#pagemenu li a,
+.pagemenu_container table#pagemenu a {
+	border-radius: 999px;
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--accent);
+	padding: 8px 16px;
+}
+
+.pagemenu_container table#pagemenu th {
+	background-color: transparent;
+	padding: 4px 2px;
+}
+
+.pagemenu_container table#pagemenu td {
+	color: transparent;
+	width: 4px;
+}
+
+.pagemenu_container table#pagemenu a:link,
+.pagemenu_container table#pagemenu a:visited {
+	display: inline-block;
+	border: 1px solid var(--tab-border);
+	background-color: var(--surface);
+	text-decoration: none;
+}
+
+.pagemenu_container table#pagemenu a:hover {
+	background-color: var(--tab-hover-bg);
+}
+
+.pagemenu_container ul#pagemenu li a.current,
+.pagemenu_container table#pagemenu a.current {
+	background-color: var(--tab-active-bg);
+	border-color: var(--tab-active-border);
+	color: var(--text-inverse);
+}
+
+.grouplinks .groupinglink:link,
+.grouplinks .groupinglink:visited,
+.groupinglink:link,
+.groupinglink:visited {
+	display: inline-block;
+	margin: 0 6px 6px 0;
+	padding: 6px 14px;
+	border: 1px solid var(--tab-border);
+	border-radius: 999px;
+	color: var(--accent);
+	font-size: 13px;
+	font-weight: 600;
+	font-variant: normal;
+	text-decoration: none;
+}
+
+.groupinglink:hover,
+.groupinglink:focus {
+	background-color: var(--tab-hover-bg);
+	text-decoration: none;
+}
+
+.selgroupinglink {
+	font-variant: normal;
+}
+
+.grouplinks .groupinglink:empty {
+	display: none;
+}
+
+.grouplinks .groupinglink.current:link,
+.grouplinks .groupinglink.current:visited {
+	background-color: var(--accent);
+	border-color: var(--accent);
+}
+
+.grouplinks .selgroupinglink,
+.selgroupinglink {
+	color: var(--text-inverse);
+	font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------------
+ * Playoff brackets (cust/default/layouts/*.html). The layout tables draw the
+ * bracket lines with inline light-gray borders; recolor them to brand navy.
+ * ------------------------------------------------------------------------ */
+
+.content table[style*="border-collapse:separate"] td[style*="border"] {
+	border-color: var(--border-strong) !important;
+	border-width: 2px !important;
+}
+
+.content table[style*="border-collapse:separate"] td {
+	padding: 6px 10px;
+	font-size: 14px;
+}
+
+.content table[style*="border-collapse:separate"] td a:link,
+.content table[style*="border-collapse:separate"] td a:visited {
+	color: var(--accent);
+	font-weight: 600;
+}
+
+/* Round headers (first row) and the score cells (bold, centered). */
+.content table[style*="border-collapse:separate"] tr:first-child td {
+	color: var(--text-muted);
+	font-size: 11px;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+}
+
+.content table[style*="border-collapse:separate"] td[style*="font-weight:bold"] a:link,
+.content table[style*="border-collapse:separate"] td[style*="font-weight:bold"] a:visited {
+	display: inline-block;
+	padding: 2px 10px;
+	border-radius: 8px;
+	background-color: var(--surface-muted);
+	box-shadow: inset 0 0 0 1px var(--menu-border);
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------------------
+ * Phones and narrow tablets
+ * ------------------------------------------------------------------------ */
+
+@media only screen and (max-width: 768px) {
+	.page_top {
+		padding: 0 12px;
+	}
+
+	.header_text:link,
+	.header_text:visited,
+	.header_text:active,
+	.header_text:hover,
+	.header_text:focus {
+		font-size: 18px;
+	}
+
+	.header_logo {
+		height: 28px;
+	}
+
+	/* Keep the menu button on the logo row instead of a second header line. */
+	.topheader_left br {
+		display: none;
+	}
+
+	.menu_button_row {
+		display: inline-block;
+		vertical-align: middle;
+		margin-left: 12px;
+	}
+
+	/* The shared menu icon is black; draw it white on the navy header. */
+	.menu_button {
+		filter: invert(1);
+		width: 22px;
+		height: 22px;
+		padding: 9px;
+		border-radius: 12px;
+		/* inverted together with the icon: reads as a faint white tint */
+		background-color: rgba(0, 0, 0, 0.16);
+	}
+
+	.page_top > form > table {
+		min-height: 60px;
+	}
+
+	.menu_left {
+		top: 0;
+		width: 280px;
+		padding: 12px;
+		padding-right: 12px;
+		background-color: var(--canvas);
+		box-shadow: 0 8px 24px rgba(0, 70, 111, 0.24);
+	}
+
+	.menu_close_button {
+		top: 22px;
+		right: 18px;
+		width: 28px;
+		height: 28px;
+		color: var(--accent);
+		font-size: 18px;
+		line-height: 28px;
+	}
+
+	/* Page tabs: one row that scrolls sideways, like the phone mockups. */
+	.pagemenu_container {
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+
+	.pagemenu_container ul#pagemenu,
+	.pagemenu_container table#pagemenu tr {
+		flex-wrap: nowrap;
+		gap: 8px;
+	}
+
+	.pagemenu_container ul#pagemenu li a,
+	.pagemenu_container table#pagemenu a {
+		padding: 8px 14px;
+		border-radius: 999px;
+		white-space: nowrap;
+	}
+
+	/* Wide tables scroll inside the card rather than spilling out of it. */
+	.content {
+		overflow-x: auto;
+		padding: 16px 12px;
+		border-radius: 12px;
+	}
+
+	/* Games lists drop their fixed desktop column widths and empty cells. */
+	.games-table td[style*="width"],
+	.content table[width="100%"] td[style*="width"] {
+		width: auto !important;
+	}
+
+	.games-table td:empty {
+		display: none;
+	}
+
+	.games-table td,
+	.content table[width="100%"] td {
+		padding-left: 3px;
+		padding-right: 3px;
+	}
+
+	.games-table td:first-child {
+		padding-left: 8px;
+	}
+
+	/* The dash between the two team names; the score dash stays. */
+	.games-table td[style="width:5px"]:has(+ td[style*="width:140px"]),
+	.content table[width="100%"] td[style="width:5px"]:has(+ td[style*="width:140px"]) {
+		display: none;
+	}
+
+	.games-table td.right,
+	.content table[width="100%"] td.right {
+		font-size: 12px;
+	}
+
+	/* Brackets keep their shape and scroll sideways instead of squeezing. */
+	.content table[style*="border-collapse:separate"] {
+		min-width: 640px;
+	}
+
+	.page_middle {
+		padding: 12px 12px 24px;
+	}
+
+
+	h1 {
+		font-size: 22px;
+	}
+
+	h2 {
+		font-size: 18px;
+	}
+
+	.content th,
+	.content td,
+	table[border="1"] th,
+	table[border="1"] td,
+	table[border="2"] th,
+	table[border="2"] td,
+	.games-table td {
+		padding: 8px 6px;
+		font-size: 13px;
+	}
+}

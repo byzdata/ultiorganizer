@@ -1,0 +1,101 @@
+/*
+ * Ultiranks palette and type for the mobile apps (Scorekeeper, Spiritkeeper,
+ * Timekeeper). Loads after cust/default/ultiorganizer-mobile.css; only colors
+ * and fonts change, layout stays the default one.
+ */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/inter-v20-latin-regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("fonts/inter-v20-latin-600.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("fonts/inter-v20-latin-700.woff2") format("woff2");
+}
+
+:root {
+  /* Surfaces */
+  --canvas: #e6e7e8; /* ultiranks */
+  --surface: #ffffff;
+  --surface-muted: #f5f6f7; /* ultiranks */
+
+  /* Text */
+  --text: #222222; /* ultiranks */
+  --text-muted: #5b7480; /* ultiranks */
+  --text-faint: #8a979e; /* ultiranks */
+  --text-inverse: #ffffff;
+
+  /* Links and accents */
+  --link: #00466f; /* ultiranks */
+  --accent: #00466f; /* ultiranks */
+  --accent-strong: #2b6d94; /* ultiranks */
+  --accent-soft: #eef3f6; /* ultiranks */
+  --accent-soft-hover: #dfe9ef; /* ultiranks */
+  --accent-surface: #eef7fb; /* ultiranks */
+  --accent-border: #9ad3e6; /* ultiranks */
+
+  /* Borders and shadows */
+  --border: rgba(0, 70, 111, 0.16); /* ultiranks */
+  --pressed-ring-color: rgba(255, 255, 255, 0.35);
+  --raised-shadow-color: rgba(0, 70, 111, 0.12); /* ultiranks */
+  --card-shadow-color: rgba(0, 70, 111, 0.08); /* ultiranks */
+
+  /* Tables and lists */
+  --table-row-odd: #f5f6f7; /* ultiranks */
+  --table-row-even: #ffffff;
+  --table-row-hover: #eef3f6; /* ultiranks */
+
+  /* Gameplay */
+  --team-home-bg: #e5edf2; /* ultiranks */
+  --team-away-bg: #e4f3f9; /* ultiranks */
+  --game-event-bg: #fff7e6;
+  --halftime-bg: #fdecea;
+  --game-card-bg: #f9fbfc; /* ultiranks */
+  --game-pending-bg: #eef3f6; /* ultiranks */
+  --game-ongoing-bg: #ffe7e7;
+  --game-played-bg: #eef8f2;
+  --gameclock-bg: #e6eef2;
+
+  /* Secondary actions */
+  --button-secondary-bg: #eef3f6; /* ultiranks */
+  --button-secondary-hover-bg: #dfe9ef; /* ultiranks */
+
+  /* Notices */
+  --status-error-bg: #fde8e8;
+  --status-error-border: #f8b4b4;
+  --status-error-text: #9b1c1c;
+  --status-success-bg: #e3fcec;
+  --status-success-border: #84e1bc;
+  --status-success-text: #0f5132;
+  --status-info-bg: #eef7fb; /* ultiranks */
+  --status-info-border: #9ad3e6; /* ultiranks */
+  --status-info-text: #00466f; /* ultiranks */
+  --status-warning-bg: #fff7e6;
+  --status-warning-border: #f7c566;
+  --status-warning-text: #b54708;
+
+  /* Timekeeper */
+  --timer-warning-bg: #fff4d6;
+  --timer-warning-text: #8a5a00;
+  --timer-critical-bg: #fde0e0;
+  --timer-critical-text: #b00020;
+}
+
+body {
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+}

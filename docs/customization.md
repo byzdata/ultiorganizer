@@ -12,6 +12,7 @@ and pool colors.
 | `default` | Base skin. Every other skin cascades on top of it. |
 | `slkl`, `wfdf` | Maintained. Verify changes against these. |
 | `bula`, `fpudd`, `gummis`, `windmill` | Unmaintained legacy, kept for compatibility. |
+| `ultiranks` | Ultiranks installations (navy/teal brand palette, self-hosted Inter, Audiowide and JetBrains Mono fonts). |
 
 Treat the unmaintained skins as frozen: check `cust/default/` changes against
 `default`, `slkl` and `wfdf`, and the rest only need to keep loading. File dates
