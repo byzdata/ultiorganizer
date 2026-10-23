@@ -27,6 +27,27 @@ is not `default`. `mobileStyles()` uses the same cascade with
 `ultiorganizer-mobile.css`. A skin only needs the rules and tokens that differ;
 loading after default, it wins on equal specificity, including `:root` tokens.
 
+## Page overrides
+
+A skin can replace a public root page without editing it. When
+`cust/<CUSTOMIZATIONS>/views/<view>.php` exists, `index.php` includes it instead
+of `<view>.php`, after the event access and maintenance gates have run. Only
+root-level views are overridable, not `admin/` or `user/` pages.
+
+An override file starts with the `cust/include_only.guard.php` guard and
+`requireRoutedView()`. It reads data through `lib/` helpers like any other page,
+and it can hand a request back to the standard page with
+`include __DIR__ . '/../../../<view>.php'; return;` for the cases it does not
+redesign.
+
+The `ultiranks` skin overrides pool standings (`views/poolstatus.php`). A
+division opens on its initial pools with one button per stage (initial pools,
+then each visible continuing pool), and round-robin and Swiss-draw pools show a
+compact standings table with a team logo slot taken from the team profile image
+(initials when there is none). The event-wide list, the printable version,
+brackets and cross matches stay on the standard page. Its CSS also hides the
+per-pool links in the left menu, leaving one link per division.
+
 ## Color tokens
 
 `cust/default/ultiorganizer.css` defines the palette as CSS custom properties

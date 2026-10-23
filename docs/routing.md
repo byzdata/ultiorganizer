@@ -8,6 +8,12 @@
 - Root-level routed page scripts are include-only implementation files. They are expected to run through `index.php`, which defines `UO_ROUTED_VIEW` before including the resolved view.
 - When a routed root page must not run standalone, use `lib/view.guard.php` and `requireRoutedView(...)` instead of duplicating direct-access checks.
 
+## Skin page overrides
+
+After the gates below, `index.php` swaps a root-level view for
+`cust/<CUSTOMIZATIONS>/views/<view>.php` when that file exists. See
+`docs/customization.md`.
+
 ## Event gates in `index.php`
 
 Before including the view, `index.php` checks the events the request names:

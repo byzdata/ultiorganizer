@@ -94,6 +94,12 @@ define('UO_APP_SOURCE', $viewSource);
 if (!defined('UO_ROUTED_VIEW')) {
     define('UO_ROUTED_VIEW', true);
 }
+// A skin can replace a public root page with cust/<skin>/views/<view>.php.
+// The gates above have already run for the request.
+$custViewPath = __DIR__ . '/cust/' . CUSTOMIZATIONS . '/views/' . $viewToLog . '.php';
+if (strpos($viewToLog, '/') === false && is_file($custViewPath)) {
+    $viewPath = $custViewPath;
+}
 include $viewPath;
 
 CloseConnection();
